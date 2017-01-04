@@ -1,0 +1,18 @@
+{{define "main"}}
+<html>
+    <head>
+    </head>
+    <body>
+        <header>
+            <h1>{{.Meta.Name}}</h1>
+            <p>{{.Meta.Description}}</p>
+            <nav>
+                <a href="{{.Meta.Url}}/">Root</a>
+                <a href="{{.Meta.Url}}/log/">Log</a>
+            </nav>
+        </header>
+
+        {{.Content}}
+    </body>
+</html>
+{{end}}

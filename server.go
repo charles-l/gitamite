@@ -1,19 +1,21 @@
 package main
 
 import "net/http"
+import "io"
 import "html/template"
 import "fmt"
 import "io/ioutil"
+import "path/filepath"
 import "log"
 import "strings"
-import "bytes"
+import "time"
 import "github.com/libgit2/git2go"
 import "github.com/dustin/go-humanize"
 import "github.com/gorilla/mux"
 
 type RepoMeta struct {
 	Name        string
-	Url         string
+	URL         string
 	Description string
 }
 
@@ -23,23 +25,25 @@ type TrackedFile struct {
 	LastCommit *git.Commit
 }
 
-func renderPage(repo *git.Repository, w http.ResponseWriter, t *template.Template, content template.HTML) {
-	desc, _ := ioutil.ReadFile("../dirt/.git/description")
-	t.ExecuteTemplate(w, "main", struct {
-		Meta    RepoMeta
-		Content template.HTML
-	}{
-		RepoMeta{
-			Name:        "test",
-			Url:         "",
-			Description: string(desc),
-		},
-		content,
-	})
+type Commit struct {
+	GCommit *git.Commit
+	Message string
+	Author  string
+	Hash    string
+	Date    time.Time
+}
+
+type Diff struct {
+	GCommitA    *git.Commit
+	GCommitB    *git.Commit
+	CommitAHash string
+	CommitBHash string
+	Stats       string
+	Patches     []string
 }
 
 // TODO: get commit log for an arbitrary branch
-func getCommitLog(repo *git.Repository, obj *git.Object) []*git.Commit {
+func getCommitLog(repo *git.Repository, obj *git.Object) []Commit {
 	r, err := repo.Walk()
 	if err != nil {
 		log.Print("failed to walk repo: ", err)
@@ -51,30 +55,39 @@ func getCommitLog(repo *git.Repository, obj *git.Object) []*git.Commit {
 
 	id := &(git.Oid{})
 
-	commits := []*git.Commit{}
+	var commits []Commit
 	for r.Next(id) == nil {
-		c, _ := repo.LookupCommit(id)
+		g, _ := repo.LookupCommit(id)
+		c := Commit{g, g.Message(), g.Committer().Name, g.Id().String(), g.Committer().When}
 		commits = append(commits, c)
 	}
 	return commits
 }
 
-func getCommitPatches(repo *git.Repository, commit *git.Commit) []string {
+func getCommitDiff(repo *git.Repository, commit *git.Commit) Diff {
 	// TODO check for multiple parent commits
 	p, _ := commit.Parent(0).Tree()
 	c, _ := commit.Tree()
 	o, _ := git.DefaultDiffOptions()
-	//r := bytes.NewBufferString("")
 	diff, _ := repo.DiffTreeToTree(p, c, &o)
 	defer diff.Free()
 
+	stats, _ := diff.Stats()
+	statsStr, _ := stats.String(git.DiffStatsFull, 80)
+
+	r := Diff{
+		GCommitA:    commit.Parent(0),
+		GCommitB:    commit,
+		CommitAHash: p.Id().String(),
+		CommitBHash: c.Id().String(),
+		Stats:       statsStr,
+	}
 	n, _ := diff.NumDeltas()
-	var r []string
 	for i := 0; i < n; i++ {
 		patch, _ := diff.Patch(i)
 
 		s, _ := patch.String()
-		r = append(r, s)
+		r.Patches = append(r.Patches, s)
 
 		patch.Free()
 	}
@@ -126,18 +139,48 @@ func getFileTreeForCommit(commitObj *git.Object) []TrackedFile {
 	return r
 }
 
+func createPageRenderer() func(w io.Writer, name string, i interface{}) {
+	templateFuncs := template.FuncMap{
+		"humanizeTime": func(t time.Time) string {
+			return humanize.Time(t)
+		},
+	}
+
+	templates := make(map[string]*template.Template)
+	baseTemp := template.Must(template.ParseGlob("l/*")).Funcs(templateFuncs)
+
+	matches, _ := filepath.Glob("t/*")
+	for _, f := range matches {
+		basename := filepath.Base(f)
+		ext := filepath.Ext(basename)
+		templates[strings.TrimSuffix(basename, ext)] = template.Must(template.Must(baseTemp.Clone()).ParseGlob(f))
+	}
+
+	return func(w io.Writer, name string, i interface{}) {
+		if templates[name] == nil {
+			log.Fatal("no such template ", name)
+		}
+		err := templates[name].ExecuteTemplate(w, "main", i)
+		if err != nil {
+			log.Fatal("error executing template: ", err)
+		}
+	}
+}
+
 func main() {
+	renderPage := createPageRenderer()
+	desc, _ := ioutil.ReadFile("../dirt/.git/description")
+	repoMeta := RepoMeta{
+		Name:        "test",
+		URL:         "",
+		Description: string(desc),
+	}
+
 	repoPath := "../dirt/"
 	repo, err := git.OpenRepository(repoPath)
 	defer repo.Free()
 	if err != nil {
 		log.Print("failed to open repo: ", err)
-	}
-
-	templates := template.Must(template.ParseGlob("t/*"))
-
-	if err != nil {
-		log.Print("couldn't parse templates: ", err)
 	}
 
 	masterObj, err := repo.RevparseSingle("master")
@@ -146,37 +189,49 @@ func main() {
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		ft := getFileTreeForCommit(masterObj)
 
-		html_buffer := bytes.NewBufferString("")
-		fmt.Fprintf(html_buffer, "<table>")
-		for _, f := range ft {
-			fmt.Fprintf(html_buffer, "<tr><td><a href='/blob/%s'>%s</a></tr>", f.Filename, f.Filename)
-		}
-		fmt.Fprintf(html_buffer, "</table>")
-		renderPage(repo, w, templates, template.HTML(html_buffer.String()))
+		renderPage(w, "filelist",
+			struct {
+				Meta  RepoMeta
+				Files []TrackedFile
+			}{
+				repoMeta,
+				ft,
+			})
 	})
 
 	r.HandleFunc("/log/", func(w http.ResponseWriter, r *http.Request) {
 		// TODO: figure out how to render directly to the response writer rather than returning a string
 		log := getCommitLog(repo, masterObj)
-		html_buffer := bytes.NewBufferString("")
-		fmt.Fprintf(html_buffer, "<table>")
-		for _, v := range log {
-			fmt.Fprintf(html_buffer, "<tr><td><a href='/commit/%s/'>%s</a></td><td>%s</td><td>%s</td></tr>", v.Id().String(), v.Summary(), v.Committer().Name, humanize.Time(v.Committer().When))
-		}
-		fmt.Fprintf(html_buffer, "</table>")
-		renderPage(repo, w, templates, template.HTML(html_buffer.String()))
+
+		renderPage(w, "log",
+			struct {
+				Meta    RepoMeta
+				Commits []Commit
+			}{
+				Meta:    repoMeta,
+				Commits: log,
+			})
 	})
 
 	r.HandleFunc("/commit/{hash}/", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
 		oid, _ := git.NewOid(vars["hash"])
 
-		c, _ := repo.LookupCommit(oid)
+		c, err := repo.LookupCommit(oid)
+		if err != nil {
+			log.Fatal("unable to find commit ", oid, ":", err)
+		}
 		defer c.Free()
 
-		d := getCommitPatches(repo, c)
+		diff := getCommitDiff(repo, c)
 
-		renderPage(repo, w, templates, template.HTML("<h1>Diff</h1><pre>"+strings.Join(d, "\n")+"</pre>"))
+		renderPage(w, "diff", struct {
+			Meta RepoMeta
+			Diff Diff
+		}{
+			repoMeta,
+			diff,
+		})
 	})
 
 	r.HandleFunc("/blob/{filename}", func(w http.ResponseWriter, r *http.Request) {
@@ -186,7 +241,13 @@ func main() {
 			s = err.Error()
 		}
 
-		renderPage(repo, w, templates, template.HTML("<h1>"+vars["filename"]+"</h1><pre>"+s+"</pre>"))
+		renderPage(w, "file", struct {
+			Meta RepoMeta
+			Text string
+		}{
+			repoMeta,
+			s,
+		})
 	})
 
 	http.Handle("/", r)

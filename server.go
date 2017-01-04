@@ -55,6 +55,18 @@ func getCommitLog(repo *git.Repository) []*git.Commit {
     return commits
 }
 
+func getCommitDiff(repo *git.Repository, commit *git.Commit) string {
+    // TODO check for multiple parent commits
+    p, _ := commit.Parent(0).Tree()
+    c, _ := commit.Tree()
+    o, _ := git.DefaultDiffOptions()
+    //r := bytes.NewBufferString("")
+    diff, _ := repo.DiffTreeToTree(p, c, &o)
+    patch, _ := diff.Patch(0)
+    s, _ := patch.String()
+    return s
+}
+
 func main() {
     repoPath := "../dirt/"
     repo, err := git.OpenRepository(repoPath)
@@ -86,7 +98,11 @@ func main() {
 
     r.HandleFunc("/commit/{hash}/", func(w http.ResponseWriter, r *http.Request){
         vars := mux.Vars(r)
-        renderPage(repo, w, templates, template.HTML("<b>a super hash " + vars["hash"] + "</b>"))
+        oid, _ := git.NewOid(vars["hash"])
+        o, _ := repo.Lookup(oid)
+        c, _ := o.AsCommit()
+        d := getCommitDiff(repo, c)
+        renderPage(repo, w, templates, template.HTML("<b>Teh Diff bebee</b><pre>" + d + "</pre>"))
     })
 
     http.Handle("/", r)

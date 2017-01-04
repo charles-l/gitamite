@@ -1,0 +1,10 @@
+{{define "content"}}
+    <pre>
+{{.Diff.Stats}}
+    </pre>
+    {{range .Diff.Patches}}
+        <pre>
+{{.}}
+        </pre>
+    {{end}}
+{{end}}

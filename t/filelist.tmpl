@@ -1,0 +1,13 @@
+{{define "content"}}
+    <table>
+    {{range .Files}}
+        <tr><td><a href="/blob/{{.Filename}}">{{.Filename}}</a></td></tr>
+    {{end}}
+    </table>
+
+    {{if .README}}
+    <pre>
+{{.README}}
+    </pre>
+    {{end}}
+{{end}}

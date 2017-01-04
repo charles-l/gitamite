@@ -144,6 +144,13 @@ func createPageRenderer() func(w io.Writer, name string, i interface{}) {
 		"humanizeTime": func(t time.Time) string {
 			return humanize.Time(t)
 		},
+		"s_ify": func(str string, n int) string {
+			if n == 1 {
+				return fmt.Sprintf("%d %s", n, str)
+			} else {
+				return fmt.Sprintf("%d %ss", n, str)
+			}
+		},
 	}
 
 	templates := make(map[string]*template.Template)
@@ -189,13 +196,20 @@ func main() {
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		ft := getFileTreeForCommit(masterObj)
 
+		readme := ""
+		if buf, err := ioutil.ReadFile("README.md"); err == nil {
+			readme = string(buf)
+		}
+
 		renderPage(w, "filelist",
 			struct {
-				Meta  RepoMeta
-				Files []TrackedFile
+				Meta   RepoMeta
+				Files  []TrackedFile
+				README string
 			}{
 				repoMeta,
 				ft,
+				readme,
 			})
 	})
 

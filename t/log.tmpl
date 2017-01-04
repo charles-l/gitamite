@@ -1,0 +1,8 @@
+{{define "content"}}
+    <p>{{s_ify "commit" (len .Commits)}}</p>
+    <table>
+    {{range .Commits}}
+        <tr><td><a href="/commit/{{.Hash}}/">{{.Message}}</a></td><td>{{.Author}}</td><td>{{.Date | humanizeTime}}</td></tr>
+    {{end}}
+    </table>
+{{end}}

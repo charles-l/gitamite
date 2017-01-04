@@ -17,6 +17,12 @@ type RepoMeta struct {
 	Description string
 }
 
+type TrackedFile struct {
+	Filename   string
+	Object     *git.Object
+	LastCommit *git.Commit
+}
+
 func renderPage(repo *git.Repository, w http.ResponseWriter, t *template.Template, content template.HTML) {
 	desc, _ := ioutil.ReadFile("../dirt/.git/description")
 	t.ExecuteTemplate(w, "main", struct {
@@ -33,18 +39,13 @@ func renderPage(repo *git.Repository, w http.ResponseWriter, t *template.Templat
 }
 
 // TODO: get commit log for an arbitrary branch
-func getCommitLog(repo *git.Repository) []*git.Commit {
+func getCommitLog(repo *git.Repository, obj *git.Object) []*git.Commit {
 	r, err := repo.Walk()
 	if err != nil {
 		log.Print("failed to walk repo: ", err)
 	}
 
-	masterObj, err := repo.RevparseSingle("master")
-	if err != nil {
-		log.Print("failed to get master: ", err)
-	}
-
-	r.Push(masterObj.Id())
+	r.Push(obj.Id())
 	r.Sorting(git.SortTime)
 	r.SimplifyFirstParent()
 
@@ -80,13 +81,8 @@ func getCommitPatches(repo *git.Repository, commit *git.Commit) []string {
 	return r
 }
 
-func readFile(repo *git.Repository, filename string) (string, error) {
-	masterObj, err := repo.RevparseSingle("master")
-	if err != nil {
-		log.Print("failed to get master: ", err)
-	}
-
-	c, err := masterObj.AsCommit()
+func readFile(repo *git.Repository, commitObj *git.Object, filename string) (string, error) {
+	c, err := commitObj.AsCommit()
 	if err != nil {
 		log.Print("invalid commit: ", err)
 	}
@@ -115,13 +111,17 @@ func readFile(repo *git.Repository, filename string) (string, error) {
 	return string(b.Contents()), nil
 }
 
-func getFileTree(repo *git.Repository) []string {
-	masterObj, _ := repo.RevparseSingle("master")
-	c, _ := masterObj.AsCommit()
-	t, _ := c.Tree()
-	var r []string
+func getFileTreeForCommit(commitObj *git.Object) []TrackedFile {
+	commit, _ := commitObj.AsCommit()
+	t, _ := commit.Tree()
+	var r []TrackedFile
 	for i := uint64(0); i < t.EntryCount(); i++ {
-		r = append(r, t.EntryByIndex(i).Name)
+		e := t.EntryByIndex(i)
+		r = append(r, TrackedFile{
+			Filename:   e.Name,
+			Object:     commitObj,
+			LastCommit: commit, // FIXME: this is wrong
+		})
 	}
 	return r
 }
@@ -140,14 +140,16 @@ func main() {
 		log.Print("couldn't parse templates: ", err)
 	}
 
+	masterObj, err := repo.RevparseSingle("master")
+
 	r := mux.NewRouter()
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		ft := getFileTree(repo)
+		ft := getFileTreeForCommit(masterObj)
 
 		html_buffer := bytes.NewBufferString("")
 		fmt.Fprintf(html_buffer, "<table>")
-		for _, v := range ft {
-			fmt.Fprintf(html_buffer, "<tr><td><a href='/blob/%s'>%s</a></tr>", v, v)
+		for _, f := range ft {
+			fmt.Fprintf(html_buffer, "<tr><td><a href='/blob/%s'>%s</a></tr>", f.Filename, f.Filename)
 		}
 		fmt.Fprintf(html_buffer, "</table>")
 		renderPage(repo, w, templates, template.HTML(html_buffer.String()))
@@ -155,7 +157,7 @@ func main() {
 
 	r.HandleFunc("/log/", func(w http.ResponseWriter, r *http.Request) {
 		// TODO: figure out how to render directly to the response writer rather than returning a string
-		log := getCommitLog(repo)
+		log := getCommitLog(repo, masterObj)
 		html_buffer := bytes.NewBufferString("")
 		fmt.Fprintf(html_buffer, "<table>")
 		for _, v := range log {
@@ -179,7 +181,7 @@ func main() {
 
 	r.HandleFunc("/blob/{filename}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		s, err := readFile(repo, vars["filename"])
+		s, err := readFile(repo, masterObj, vars["filename"])
 		if err != nil {
 			s = err.Error()
 		}

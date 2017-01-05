@@ -61,7 +61,11 @@ func (t TreeEntry) Path() string {
 		if t.DirPath == "" {
 			return "/"
 		} else {
-			return filepath.Join("/", "tree", t.DirPath, t.Name)
+			if t.Name == ".." { // TODO: simplify
+				return filepath.Join("/", "tree", t.DirPath)
+			} else {
+				return filepath.Join("/", "tree", t.DirPath, t.Name)
+			}
 		}
 	}
 	log.Fatal("unknown type tree entry type ", t.Type)
@@ -69,13 +73,13 @@ func (t TreeEntry) Path() string {
 }
 
 // TODO: get commit log for an arbitrary branch
-func getCommitLog(repo *git.Repository, obj *git.Object) []Commit {
+func getCommitLog(repo *git.Repository, ref *git.Reference) []Commit {
 	r, err := repo.Walk()
 	if err != nil {
 		log.Print("failed to walk repo: ", err)
 	}
 
-	r.Push(obj.Id())
+	r.Push(ref.Target())
 	r.Sorting(git.SortTime)
 	r.SimplifyFirstParent()
 
@@ -120,13 +124,8 @@ func getCommitDiff(repo *git.Repository, commit *git.Commit) Diff {
 	return r
 }
 
-func readBlob(repo *git.Repository, commitObj *git.Object, filepath string) (string, error) {
-	c, err := commitObj.AsCommit()
-	if err != nil {
-		log.Print("invalid commit: ", err)
-	}
-
-	t, err := c.Tree()
+func readBlob(repo *git.Repository, commit *git.Commit, filepath string) (string, error) {
+	t, err := commit.Tree()
 	if err != nil {
 		log.Print("invalid tree: ", err)
 	}
@@ -247,7 +246,7 @@ func (r Renderer) renderFileTree(w io.Writer, repo Repo, commit *git.Commit, pat
 	t, _ := commit.Tree()
 
 	readme := ""
-	if buf, err := readBlob(repo._Repo, &commit.Object, "README.md"); err == nil {
+	if buf, err := readBlob(repo._Repo, commit, "README.md"); err == nil {
 		readme = string(buf)
 	}
 
@@ -275,17 +274,17 @@ func main() {
 	defer repo._Repo.Free()
 
 	render := createPageRenderer()
-	masterObj, _ := repo._Repo.RevparseSingle("master")
-	masterCommit, _ := masterObj.AsCommit()
+	master, _ := repo._Repo.LookupBranch("master", git.BranchAll)
+	firstCommitObj, _ := master.Reference.Peel(git.ObjectCommit)
+	firstCommit, _ := firstCommitObj.AsCommit()
 
 	r := mux.NewRouter()
 	r.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		render.renderFileTree(w, repo, masterCommit, "/")
+		render.renderFileTree(w, repo, firstCommit, "/")
 	})
 
 	r.HandleFunc("/log/", func(w http.ResponseWriter, r *http.Request) {
-		// TODO: figure out how to render directly to the response writer rather than returning a string
-		log := getCommitLog(repo._Repo, masterObj)
+		log := getCommitLog(repo._Repo, master.Reference)
 
 		render(w, "log",
 			struct {
@@ -320,7 +319,7 @@ func main() {
 
 	r.HandleFunc("/blob/{filepath:.*}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		s, err := readBlob(repo._Repo, masterObj, vars["filepath"])
+		s, err := readBlob(repo._Repo, firstCommit, vars["filepath"])
 		if err != nil {
 			s = err.Error()
 		}
@@ -336,7 +335,7 @@ func main() {
 
 	r.HandleFunc("/tree/{filepath:.*}", func(w http.ResponseWriter, r *http.Request) {
 		vars := mux.Vars(r)
-		render.renderFileTree(w, repo, masterCommit, vars["filepath"])
+		render.renderFileTree(w, repo, firstCommit, vars["filepath"])
 	})
 
 	http.Handle("/", r)

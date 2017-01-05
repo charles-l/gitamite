@@ -1,7 +1,7 @@
 {{define "content"}}
     <table>
-    {{range .Files}}
-        <tr><td><a href="/blob/{{.Filename}}">{{.Filename}}</a></td></tr>
+    {{range .Entries}}
+        <tr><td><a href="{{. | path}}">{{.Name}}</a></td></tr>
     {{end}}
     </table>
 

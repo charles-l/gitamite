@@ -1,13 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/charles-l/gitamite"
 	"github.com/dustin/go-humanize"
 	"github.com/gorilla/mux"
 	"github.com/libgit2/git2go"
-	"golang.org/x/crypto/openpgp"
 	"html/template"
 	"io"
 	"io/ioutil"
@@ -170,9 +169,9 @@ func createPageRenderer() Renderer {
 	}
 
 	templates := make(map[string]*template.Template)
-	baseTemp := template.Must(template.ParseGlob("l/*")).Funcs(templateFuncs)
+	baseTemp := template.Must(template.ParseGlob("layouts/*")).Funcs(templateFuncs)
 
-	matches, _ := filepath.Glob("t/*")
+	matches, _ := filepath.Glob("templates/*")
 	for _, f := range matches {
 		basename := filepath.Base(f)
 		ext := filepath.Ext(basename)
@@ -270,54 +269,37 @@ func (r Renderer) renderFileTree(w io.Writer, repo Repo, commit *git.Commit, pat
 		})
 }
 
-const pubRing = "/home/nc/.gnupg/pubring.gpg"
-
-type AuthRequest struct {
-	Signature, Data []byte
-}
-
-func (r AuthRequest) verifyRequest() error {
-	f, err := ioutil.ReadFile(pubRing)
-	if err != nil {
-		return err
-	}
-	keyring, err := openpgp.ReadKeyRing(bytes.NewReader(f))
-	if err != nil {
-		return err
-	}
-
-	if _, err = openpgp.CheckArmoredDetachedSignature(keyring,
-		bytes.NewReader(r.Data),
-		bytes.NewReader(r.Signature)); err != nil {
-		return err
-	}
-	return nil
-}
-
 type CreateHandler struct {
 	Render Renderer
 }
 
 func (h CreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	blob, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "error in body: "+err.Error(), 400)
+	}
 
-	var a AuthRequest
-	json.Unmarshal(blob, &a)
+	var a gitamite.AuthRequest
+	err = json.Unmarshal(blob, &a)
+	if err != nil {
+		http.Error(w, "malformed json "+err.Error(), 400)
+	}
 
 	if err != nil {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	if len(a.Signature) == 0 || len(a.Data) == 0 {
+	if len(a.Signature) == 0 || a.Data == nil {
 		http.Error(w, "Need data and signature", 400)
 		return
 	}
 
-	if err := a.verifyRequest(); err == nil {
-		fmt.Fprintf(w, "YUUSS!")
-	} else {
-		http.Error(w, "Not the password", 401)
+	if err := a.VerifyRequest(); err != nil {
+		http.Error(w, "Invalid signature", 401)
+		return
 	}
+
+	log.Printf("creating new repo: %s", a.Data.(map[string]interface{})["Name"])
 }
 
 type CommitLogHandler struct {
@@ -413,7 +395,7 @@ func (h FileHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	repo := loadRepository("gititup", "..")
+	repo := loadRepository("gititup", "../..")
 	defer repo._Repo.Free()
 
 	render := createPageRenderer()
@@ -422,13 +404,16 @@ func main() {
 	firstCommitObj, _ := master.Reference.Peel(git.ObjectCommit)
 	firstCommit, _ := firstCommitObj.AsCommit()
 
-	r := mux.NewRouter()
-	r.Handle("/", FileTreeHandler{render, repo, firstCommit})
-	r.Handle("/create", CreateHandler{render})
-	r.Handle("/log/", CommitLogHandler{render, repo, master.Reference})
-	r.Handle("/commit/{oidA}/", DiffHandler{render, repo})
-	r.Handle("/blob/{path:.*}", FileHandler{render, repo, firstCommit})
-	r.Handle("/tree/{path:.*}", FileTreeHandler{render, repo, firstCommit})
+	r := mux.NewRouter().StrictSlash(true)
+
+	repos := r.PathPrefix("/repos/{repo}").Methods("GET").Subrouter()
+	repos.Handle("/", FileTreeHandler{render, repo, firstCommit})
+	repos.Handle("/log/", CommitLogHandler{render, repo, master.Reference})
+	repos.Handle("/commit/{oidA}/", DiffHandler{render, repo})
+	repos.Handle("/blob/{path:.*}", FileHandler{render, repo, firstCommit})
+	repos.Handle("/tree/{path:.*}/", FileTreeHandler{render, repo, firstCommit})
+
+	r.Methods("POST").Subrouter().Handle("/repos", CreateHandler{render})
 
 	http.Handle("/", r)
 	http.ListenAndServe(":8000", nil)

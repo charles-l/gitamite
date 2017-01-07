@@ -3,36 +3,34 @@ package handler
 import (
 	"net/http"
 
-	"fmt"
-
 	"github.com/charles-l/gitamite"
-	"github.com/gorilla/mux"
+	"github.com/charles-l/gitamite/server/context"
+	"github.com/labstack/echo"
 )
 
-func parseRef(r *gitamite.Repo, vars map[string]string) (gitamite.Ref, error) {
-	refstr, exist := vars["ref"]
-	if !exist {
+func parseRef(r *gitamite.Repo, refstr string) (gitamite.Ref, error) {
+	if refstr == "" {
 		refstr = "master"
 	}
 	ref, err := r.LookupRef(refstr)
 	return ref, err
 }
 
-func CommitsHandler(c *Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	ref, err := parseRef(c.Repo, mux.Vars(r))
+func CommitsHandler(c echo.Context) error {
+	ref, err := parseRef(&c.(*server.Context).Repo, c.Param("ref"))
 	if err != nil {
-		return 404, fmt.Errorf("ref not found")
+		return err
 	}
 
-	log := gitamite.GetCommitLog(c.Repo, ref)
+	log := gitamite.GetCommitLog(&c.(*server.Context).Repo, ref)
 
-	c.Render(w, "log",
+	c.Render(http.StatusOK, "log",
 		struct {
 			Repo    *gitamite.Repo
 			Commits []gitamite.Commit
 		}{
-			c.Repo,
+			&c.(*server.Context).Repo,
 			log,
 		})
-	return 200, nil
+	return nil
 }

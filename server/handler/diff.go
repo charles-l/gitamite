@@ -2,41 +2,38 @@ package handler
 
 import (
 	"github.com/charles-l/gitamite"
+	"github.com/charles-l/gitamite/server/context"
+	"github.com/labstack/echo"
 
-	"github.com/gorilla/mux"
-
-	"fmt"
 	"net/http"
 )
 
 // TODO: clean this up
-func DiffHandler(c *Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	vars := mux.Vars(r)
-
-	commitA, err := c.Repo.LookupCommit(vars["oidA"])
+func DiffHandler(c echo.Context) error {
+	commitA, err := c.(*server.Context).Repo.LookupCommit(c.Param("oidA"))
 	if err != nil {
-		return 404, fmt.Errorf("unable to find commit: " + vars["oidA"])
+		return err
 	}
 	defer commitA.Free()
 
 	var commitB gitamite.Commit
-	if vars["oidB"] == "" {
+	if c.Param("oidB") == "" {
 		commitB = gitamite.Commit{commitA.Parent(0)}
 	} else {
-		commitB, err = c.Repo.LookupCommit(vars["oidB"])
+		commitB, err = c.(*server.Context).Repo.LookupCommit(c.Param("oidB"))
 		if err != nil {
-			return 404, fmt.Errorf("unable to find commit: " + vars["oidB"])
+			return err
 		}
 	}
 
-	diff := gitamite.GetDiff(c.Repo, &commitA, &commitB)
+	diff := gitamite.GetDiff(&c.(*server.Context).Repo, &commitA, &commitB)
 
-	c.Render(w, "diff", struct {
+	c.Render(http.StatusOK, "diff", struct {
 		Repo *gitamite.Repo
 		Diff gitamite.Diff
 	}{
-		c.Repo,
+		&c.(*server.Context).Repo,
 		diff,
 	})
-	return 200, nil
+	return nil
 }

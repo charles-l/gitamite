@@ -2,22 +2,48 @@ package handler
 
 import (
 	"github.com/charles-l/gitamite"
-	"github.com/gorilla/mux"
+	"github.com/charles-l/gitamite/server/context"
+	"github.com/labstack/echo"
 	"net/http"
 )
 
-func FileTreeHandler(c *Context, w http.ResponseWriter, r *http.Request) (int, error) {
-	vars := mux.Vars(r)
+func FileTreeHandler(c echo.Context) error {
 	path := "/"
+	repo := c.(*server.Context).Repo
 	var commit gitamite.Commit
-	if vars["path"] != "" {
-		path = vars["path"]
+	if c.Param("path") != "" {
+		path = c.Param("path")
 	}
-	if vars["commit"] != "" {
-		commit, _ = c.Repo.LookupCommit(vars["commit"])
+	if c.Param("commit") != "" {
+		commit, _ = repo.LookupCommit(c.Param("commit"))
 	} else {
-		commit, _ = c.Repo.DefaultCommit()
+		commit, _ = repo.DefaultCommit()
 	}
-	c.Render.RenderFileTree(w, c.Repo, &commit, path)
-	return 200, nil
+
+	////////////
+	t, _ := commit.Tree()
+
+	readme := ""
+	if buf, err := repo.ReadBlob(&commit, "README.md"); err == nil {
+		readme = string(buf)
+	}
+
+	var entries []gitamite.TreeEntry
+	if path == "/" || path == "" {
+		entries = gitamite.GetTreeEntries(t, "/")
+	} else {
+		entries = gitamite.GetSubTree(t, path)
+	}
+
+	c.Render(http.StatusOK, "filelist",
+		struct {
+			Repo    *gitamite.Repo
+			Entries []gitamite.TreeEntry
+			README  string
+		}{
+			&repo,
+			entries,
+			readme,
+		})
+	return nil
 }

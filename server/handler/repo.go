@@ -1,43 +1,36 @@
 package handler
 
 import (
-	"encoding/json"
 	"github.com/charles-l/gitamite"
-	"github.com/charles-l/gitamite/server/helper"
+
+	"github.com/labstack/echo"
+
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
-	"net/http"
 )
 
-type CreateHandler struct {
-	Render helper.Renderer
-}
-
-func (h CreateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	blob, err := ioutil.ReadAll(r.Body)
+func CreateRepo(c echo.Context) error {
+	blob, err := ioutil.ReadAll(c.Request().Body)
 	if err != nil {
-		http.Error(w, "error in body: "+err.Error(), 400)
+		return err
 	}
 
 	var a gitamite.AuthRequest
 	err = json.Unmarshal(blob, &a)
 	if err != nil {
-		http.Error(w, "malformed json "+err.Error(), 400)
+		return err
 	}
 
-	if err != nil {
-		http.Error(w, err.Error(), 400)
-		return
-	}
 	if len(a.Signature) == 0 || a.Data == nil {
-		http.Error(w, "Need data and signature", 400)
-		return
+		return fmt.Errorf("Need data and signature")
 	}
 
 	if err := a.VerifyRequest(); err != nil {
-		http.Error(w, "Invalid signature", 401)
-		return
+		return fmt.Errorf("Invalid signature")
 	}
 
 	log.Printf("creating new repo: %s", a.Data.(map[string]interface{})["Name"])
+	return nil
 }

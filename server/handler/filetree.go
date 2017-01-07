@@ -7,9 +7,9 @@ import (
 	"net/http"
 )
 
-func FileTreeHandler(c echo.Context) error {
+func FileTree(c echo.Context) error {
 	path := "/"
-	repo := c.(*server.Context).Repo
+	repo := c.(*server.Context).Repo()
 	var commit gitamite.Commit
 	if c.Param("path") != "" {
 		path = c.Param("path")
@@ -41,7 +41,7 @@ func FileTreeHandler(c echo.Context) error {
 			Entries []gitamite.TreeEntry
 			README  string
 		}{
-			&repo,
+			repo,
 			entries,
 			readme,
 		})

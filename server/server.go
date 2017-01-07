@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-func loadRepository(name string, path string) gitamite.Repo {
+func loadRepository(name string, path string) *gitamite.Repo {
 	repo, err := git.OpenRepository(path)
 	if err != nil {
 		log.Fatal("failed to open repo ", path, ":", err)
@@ -29,7 +29,7 @@ func loadRepository(name string, path string) gitamite.Repo {
 		log.Print("failed to get repo description ", path, ":", err)
 		desc = []byte("")
 	}
-	return gitamite.Repo{
+	return &gitamite.Repo{
 		name,
 		path,
 		string(desc),
@@ -46,13 +46,15 @@ func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Con
 }
 
 func main() {
-	repo := loadRepository("gititup", "..")
-	defer repo.Free()
+	repos := map[string]*gitamite.Repo{
+		"gitamite": loadRepository("gititup", ".."),
+	}
+	defer repos["gitamite"].Free()
 
 	e := echo.New()
 	e.Use(func(h echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			cc := &server.Context{c, repo}
+			cc := &server.Context{c, repos}
 			return h(cc)
 		}
 	})
@@ -77,13 +79,13 @@ func main() {
 	}
 	e.Renderer = t
 
-	e.POST("/repo", handler.CreateRepo)
+	e.GET("/repo/:repo/", handler.FileTree)
+	e.GET("/repo/:repo/commits/", handler.Commits)
+	e.GET("/repo/:repo/commit/:oidA", handler.Diff)
+	e.GET("/repo/:repo/blob/*", handler.File)
+	e.GET("/repo/:repo/tree/*", handler.FileTree)
 
-	e.GET("/repo/:repo/", handler.CommitsHandler)
-	e.GET("/repo/:repo/commits/", handler.CommitsHandler)
-	e.GET("/repo/:repo/commit/:oidA", handler.DiffHandler)
-	e.GET("/repo/:repo/blob/*", handler.FileHandler)
-	e.GET("/repo/:repo/tree/*", handler.FileTreeHandler)
+	e.POST("/repo", handler.CreateRepo)
 
 	e.Logger.Fatal(e.Start(":8000"))
 }

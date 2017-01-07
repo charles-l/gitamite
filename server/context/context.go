@@ -7,5 +7,9 @@ import (
 
 type Context struct {
 	echo.Context
-	Repo gitamite.Repo
+	Repos map[string]*gitamite.Repo
+}
+
+func (c Context) Repo() *gitamite.Repo {
+	return c.Repos[c.Param("repo")]
 }

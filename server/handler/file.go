@@ -21,7 +21,7 @@ func File(c echo.Context) error {
 		}
 	}
 
-	s, err := c.(*server.Context).Repo().ReadBlob(&commit, c.Param("path"))
+	s, err := c.(*server.Context).Repo().ReadBlob(&commit, c.Param("*"))
 	if err != nil {
 		return err
 	}

@@ -11,8 +11,8 @@ func FileTree(c echo.Context) error {
 	path := "/"
 	repo := c.(*server.Context).Repo()
 	var commit gitamite.Commit
-	if c.Param("path") != "" {
-		path = c.Param("path")
+	if c.Param("*") != "" {
+		path = c.Param("*")
 	}
 	if c.Param("commit") != "" {
 		commit, _ = repo.LookupCommit(c.Param("commit"))

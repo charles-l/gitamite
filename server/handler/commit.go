@@ -26,10 +26,10 @@ func Commits(c echo.Context) error {
 
 	c.Render(http.StatusOK, "log",
 		struct {
-			Repo    *gitamite.Repo
+			Repo    gitamite.Repo
 			Commits []gitamite.Commit
 		}{
-			c.(*server.Context).Repo(),
+			*c.(*server.Context).Repo(),
 			log,
 		})
 	return nil

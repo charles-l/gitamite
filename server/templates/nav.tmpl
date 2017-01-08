@@ -3,8 +3,8 @@
     <h1>{{.Repo.Name}}</h1>
     <p>{{.Repo.Description}}</p>
     <nav>
-        <a href="/">Files</a>
-        <a href="/log/">Log</a>
+        <a href="{{path .Repo}}/">Files</a>
+        <a href="{{path .Repo}}/commits/">Log</a>
     </nav>
 </header>
 {{end}}

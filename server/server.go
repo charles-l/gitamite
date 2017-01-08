@@ -1,53 +1,44 @@
 package main
 
 import (
+	// web framework
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 
-	"github.com/dustin/go-humanize"
-	"github.com/libgit2/git2go"
-
+	// API and server functionality
 	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/context"
 	"github.com/charles-l/gitamite/server/handler"
 
+	// better templates
+	"github.com/unrolled/render"
+
+	// helper
+	"github.com/dustin/go-humanize"
+
 	"fmt"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
+	"path"
 	"time"
 )
 
-func loadRepository(name string, path string) *gitamite.Repo {
-	repo, err := git.OpenRepository(path)
-	if err != nil {
-		log.Fatal("failed to open repo ", path, ":", err)
-	}
-	desc, err := ioutil.ReadFile(path + "/.git/description")
-	if err != nil {
-		log.Print("failed to get repo description ", path, ":", err)
-		desc = []byte("")
-	}
-	return &gitamite.Repo{
-		name,
-		path,
-		string(desc),
-		repo,
-	}
+type RenderWrapper struct {
+	rnd *render.Render
 }
 
-type Template struct {
-	templates *template.Template
-}
-
-func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	return t.templates.ExecuteTemplate(w, name, data)
+func (r *RenderWrapper) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
+	err := r.rnd.HTML(w, 0, name, data)
+	if err != nil {
+		log.Print(err)
+	}
+	return err
 }
 
 func main() {
 	repos := map[string]*gitamite.Repo{
-		"gitamite": loadRepository("gititup", ".."),
+		"gitamite": gitamite.LoadRepository("gitamite", ".."),
 	}
 	defer repos["gitamite"].Free()
 
@@ -59,7 +50,7 @@ func main() {
 		}
 	})
 
-	e.Pre(middleware.AddTrailingSlash())
+	e.Pre(middleware.RemoveTrailingSlash())
 
 	templateFuncs := template.FuncMap{
 		"humanizeTime": func(t time.Time) string {
@@ -72,15 +63,23 @@ func main() {
 				return fmt.Sprintf("%d %ss", n, str)
 			}
 		},
+		"path": func(urlables ...gitamite.URLable) string {
+			var r []string
+			for _, u := range urlables {
+				r = append(r, u.URL())
+			}
+			return path.Join(r...)
+		},
 	}
 
-	t := &Template{
-		templates: template.Must(template.New("t").Funcs(templateFuncs).ParseGlob("templates/*")),
-	}
-	e.Renderer = t
+	r := &RenderWrapper{render.New(render.Options{
+		Layout: "layout",
+		Funcs:  []template.FuncMap{templateFuncs},
+	})}
+	e.Renderer = r
 
-	e.GET("/repo/:repo/", handler.FileTree)
-	e.GET("/repo/:repo/commits/", handler.Commits)
+	e.GET("/repo/:repo", handler.FileTree)
+	e.GET("/repo/:repo/commits", handler.Commits)
 	e.GET("/repo/:repo/commit/:oidA", handler.Diff)
 	e.GET("/repo/:repo/blob/*", handler.File)
 	e.GET("/repo/:repo/tree/*", handler.FileTree)

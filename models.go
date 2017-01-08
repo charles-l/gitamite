@@ -2,6 +2,7 @@ package gitamite
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"path/filepath"
 	"time"
@@ -35,6 +36,24 @@ type Repo struct {
 	Filepath    string
 	Description string
 	*git.Repository
+}
+
+func LoadRepository(name string, path string) *Repo {
+	repo, err := git.OpenRepository(path)
+	if err != nil {
+		log.Fatal("failed to open repo ", path, ":", err)
+	}
+	desc, err := ioutil.ReadFile(path + "/.git/description")
+	if err != nil {
+		log.Print("failed to get repo description ", path, ":", err)
+		desc = []byte("")
+	}
+	return &Repo{
+		name,
+		path,
+		string(desc),
+		repo,
+	}
 }
 
 func (r Repo) LookupRef(ref string) (Ref, error) {
@@ -149,18 +168,17 @@ func (repo *Repo) ReadBlob(commit *Commit, filepath string) ([]byte, error) {
 
 	te, _ := t.EntryByPath(filepath)
 	if te == nil {
-		log.Print("no file: ", filepath)
 		return nil, fmt.Errorf("no such file/blob/tree entry %g", filepath)
 	}
 
 	f, err := repo.Lookup(te.Id)
 	if err != nil {
-		log.Print("invalid file: ", err)
+		return nil, err
 	}
 
 	b, err := f.AsBlob()
 	if err != nil {
-		log.Print("invalid blob: ", err)
+		return nil, err
 	}
 
 	return b.Contents(), nil

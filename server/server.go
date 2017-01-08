@@ -13,6 +13,9 @@ import (
 	// better templates
 	"github.com/unrolled/render"
 
+	// markdown renderer
+	"github.com/russross/blackfriday"
+
 	// helper
 	"github.com/dustin/go-humanize"
 
@@ -69,6 +72,11 @@ func main() {
 				r = append(r, u.URL())
 			}
 			return path.Join(r...)
+		},
+		"markdown": func(args ...interface{}) template.HTML {
+			// TODO: cache this instead of parsing every time
+			s := blackfriday.MarkdownCommon([]byte(fmt.Sprintf("%s", args...)))
+			return template.HTML(s)
 		},
 	}
 

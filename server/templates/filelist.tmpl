@@ -7,8 +7,6 @@
     </table>
 
     {{if .README}}
-    <pre>
-{{.README}}
-    </pre>
+        {{.README | markdown}}
     {{end}}
 {{end}}

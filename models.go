@@ -19,6 +19,10 @@ type Ref struct {
 	*git.Reference
 }
 
+func (r Ref) NiceName() string {
+	return filepath.Base(r.Name())
+}
+
 type Diff struct {
 	CommitA *Commit
 	CommitB *Commit

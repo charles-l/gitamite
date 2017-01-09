@@ -87,10 +87,18 @@ func main() {
 	e.Renderer = r
 
 	e.GET("/repo/:repo", handler.FileTree)
+	e.GET("/repo/:repo/refs", handler.Refs)
+
 	e.GET("/repo/:repo/commits", handler.Commits)
-	e.GET("/repo/:repo/commit/:oidA", handler.Diff)
+	e.GET("/repo/:repo/:ref/commits", handler.Commits)
+
 	e.GET("/repo/:repo/blob/*", handler.File)
+	e.GET("/repo/:repo/:ref/blob/*", handler.File)
+
 	e.GET("/repo/:repo/tree/*", handler.FileTree)
+	e.GET("/repo/:repo/:ref/tree/*", handler.FileTree)
+
+	e.GET("/repo/:repo/commit/:oidA", handler.Diff)
 
 	e.POST("/repo", handler.CreateRepo)
 

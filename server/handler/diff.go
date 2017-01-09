@@ -2,7 +2,8 @@ package handler
 
 import (
 	"github.com/charles-l/gitamite"
-	"github.com/charles-l/gitamite/server/context"
+	"github.com/charles-l/gitamite/server/helper"
+
 	"github.com/labstack/echo"
 
 	"net/http"
@@ -10,11 +11,11 @@ import (
 
 // TODO: clean this up
 func Diff(c echo.Context) error {
-	t, err := c.(*server.Context).Repo().LookupCommit(c.Param("oidA"))
+	repo, _ := helper.Repo(c)
+	commitA, err := repo.LookupCommit(c.Param("oidA"))
 	if err != nil {
 		return err
 	}
-	commitA := &t
 
 	var commitB *gitamite.Commit
 	if c.Param("oidB") == "" {
@@ -24,20 +25,19 @@ func Diff(c echo.Context) error {
 			commitB = nil
 		}
 	} else {
-		t, err = c.(*server.Context).Repo().LookupCommit(c.Param("oidB"))
+		commitB, err = repo.LookupCommit(c.Param("oidB"))
 		if err != nil {
 			return err
 		}
-		commitB = &t
 	}
 
-	diff := gitamite.GetDiff(c.(*server.Context).Repo(), commitA, commitB)
+	diff := gitamite.GetDiff(repo, commitA, commitB)
 
 	c.Render(http.StatusOK, "diff", struct {
 		Repo *gitamite.Repo
 		Diff gitamite.Diff
 	}{
-		c.(*server.Context).Repo(),
+		repo,
 		diff,
 	})
 	return nil

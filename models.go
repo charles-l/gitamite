@@ -68,44 +68,21 @@ func (r Repo) LookupRef(ref string) (Ref, error) {
 	return Ref{master.Reference}, nil
 }
 
-func (r Repo) DefaultRef() (Ref, error) {
-	return r.LookupRef("master")
-}
-
-func (r Repo) DefaultCommit() (Commit, error) {
-	master, err := r.LookupRef("master")
-	if err != nil {
-		return Commit{}, err
-	}
-
-	commitObj, err := master.Peel(git.ObjectCommit)
-	if err != nil {
-		return Commit{}, err
-	}
-
-	gcommit, err := commitObj.AsCommit()
-	if err != nil {
-		return Commit{}, err
-	}
-
-	return Commit{gcommit}, nil
-}
-
-func (r Repo) LookupCommit(hash string) (Commit, error) {
+func (r Repo) LookupCommit(hash string) (*Commit, error) {
 	oid, err := git.NewOid(hash)
 	if err != nil {
-		return Commit{}, err
+		return nil, err
 	}
 
 	c, err := r.Repository.LookupCommit(oid)
 	if err != nil {
-		return Commit{}, err
+		return nil, err
 	}
 
-	return Commit{c}, nil
+	return &Commit{c}, nil
 }
 
-func GetCommitLog(repo *Repo, ref Ref) []Commit {
+func GetCommitLog(repo *Repo, ref *Ref) []Commit {
 	r, err := repo.Walk()
 	if err != nil {
 		log.Print("failed to walk repo: ", err)

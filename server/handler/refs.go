@@ -2,7 +2,7 @@ package handler
 
 import (
 	"github.com/charles-l/gitamite"
-	"github.com/charles-l/gitamite/server/context"
+	"github.com/charles-l/gitamite/server/helper"
 
 	"github.com/labstack/echo"
 	"github.com/libgit2/git2go"
@@ -11,7 +11,7 @@ import (
 )
 
 func Refs(c echo.Context) error {
-	repo := c.(*server.Context).Repo()
+	repo, _ := helper.Repo(c)
 
 	iter, _ := repo.NewBranchIterator(git.BranchLocal)
 
@@ -25,7 +25,7 @@ func Refs(c echo.Context) error {
 		Repo *gitamite.Repo
 		Refs []gitamite.Ref
 	}{
-		c.(*server.Context).Repo(),
+		repo,
 		refs,
 	})
 	return nil

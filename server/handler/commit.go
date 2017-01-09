@@ -4,32 +4,26 @@ import (
 	"net/http"
 
 	"github.com/charles-l/gitamite"
-	"github.com/charles-l/gitamite/server/context"
+	"github.com/charles-l/gitamite/server/helper"
 	"github.com/labstack/echo"
 )
 
-func parseRef(r *gitamite.Repo, refstr string) (gitamite.Ref, error) {
-	if refstr == "" {
-		refstr = "master"
-	}
-	ref, err := r.LookupRef(refstr)
-	return ref, err
-}
-
 func Commits(c echo.Context) error {
-	ref, err := parseRef(c.(*server.Context).Repo(), c.Param("ref"))
+	repo, _ := helper.Repo(c)
+
+	ref, err := helper.Ref(c)
 	if err != nil {
 		return err
 	}
 
-	log := gitamite.GetCommitLog(c.(*server.Context).Repo(), ref)
+	log := gitamite.GetCommitLog(repo, ref)
 
 	c.Render(http.StatusOK, "log",
 		struct {
-			Repo    gitamite.Repo
+			Repo    *gitamite.Repo
 			Commits []gitamite.Commit
 		}{
-			*c.(*server.Context).Repo(),
+			repo,
 			log,
 		})
 	return nil

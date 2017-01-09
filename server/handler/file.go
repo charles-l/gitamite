@@ -2,26 +2,21 @@ package handler
 
 import (
 	"github.com/charles-l/gitamite"
-	"github.com/charles-l/gitamite/server/context"
+	"github.com/charles-l/gitamite/server/helper"
+
 	"github.com/labstack/echo"
 
 	"net/http"
 )
 
 func File(c echo.Context) error {
-	var commit gitamite.Commit
-	commitstr := c.Param("commit")
-	if commitstr == "" {
-		commit, _ = c.(*server.Context).Repo().DefaultCommit()
-	} else {
-		var err error
-		commit, err = c.(*server.Context).Repo().LookupCommit(commitstr)
-		if err != nil {
-			return err
-		}
+	repo, _ := helper.Repo(c)
+	commit, err := helper.Commit(c)
+	if err != nil {
+		return err
 	}
 
-	s, err := c.(*server.Context).Repo().ReadBlob(&commit, c.Param("*"))
+	s, err := repo.ReadBlob(commit, c.Param("*"))
 	if err != nil {
 		return err
 	}
@@ -30,7 +25,7 @@ func File(c echo.Context) error {
 		Repo *gitamite.Repo
 		Text string
 	}{
-		c.(*server.Context).Repo(),
+		repo,
 		string(s),
 	})
 	return nil

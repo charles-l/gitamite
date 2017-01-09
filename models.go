@@ -135,12 +135,15 @@ func (c Commit) Date() time.Time {
 }
 
 func GetDiff(repo *Repo, commitA *Commit, commitB *Commit) Diff {
-	// TODO check for multiple parent commits
 	treeA, _ := commitA.Tree()
-	treeB, _ := commitB.Tree()
+	var treeB *git.Tree
+	if commitB == nil {
+		treeB = nil
+	} else {
+		treeB, _ = commitB.Tree()
+	}
 	o, _ := git.DefaultDiffOptions()
 	diff, _ := repo.DiffTreeToTree(treeA, treeB, &o)
-	defer diff.Free()
 
 	stats, _ := diff.Stats()
 	statsStr, _ := stats.String(git.DiffStatsFull, 80)
@@ -158,8 +161,6 @@ func GetDiff(repo *Repo, commitA *Commit, commitB *Commit) Diff {
 
 		s, _ := patch.String()
 		r.Patches = append(r.Patches, s)
-
-		patch.Free()
 	}
 	return r
 }

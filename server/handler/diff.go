@@ -10,23 +10,28 @@ import (
 
 // TODO: clean this up
 func Diff(c echo.Context) error {
-	commitA, err := c.(*server.Context).Repo().LookupCommit(c.Param("oidA"))
+	t, err := c.(*server.Context).Repo().LookupCommit(c.Param("oidA"))
 	if err != nil {
 		return err
 	}
-	defer commitA.Free()
+	commitA := &t
 
-	var commitB gitamite.Commit
+	var commitB *gitamite.Commit
 	if c.Param("oidB") == "" {
-		commitB = gitamite.Commit{commitA.Parent(0)}
+		if commitA.ParentCount() > 0 {
+			commitB = &gitamite.Commit{commitA.Parent(0)}
+		} else {
+			commitB = nil
+		}
 	} else {
-		commitB, err = c.(*server.Context).Repo().LookupCommit(c.Param("oidB"))
+		t, err = c.(*server.Context).Repo().LookupCommit(c.Param("oidB"))
 		if err != nil {
 			return err
 		}
+		commitB = &t
 	}
 
-	diff := gitamite.GetDiff(c.(*server.Context).Repo(), &commitA, &commitB)
+	diff := gitamite.GetDiff(c.(*server.Context).Repo(), commitA, commitB)
 
 	c.Render(http.StatusOK, "diff", struct {
 		Repo *gitamite.Repo

@@ -43,7 +43,6 @@ func main() {
 	repos := map[string]*gitamite.Repo{
 		"gitamite": gitamite.LoadRepository("gitamite", ".."),
 	}
-	defer repos["gitamite"].Free()
 
 	e := echo.New()
 	e.Use(func(h echo.HandlerFunc) echo.HandlerFunc {
@@ -93,10 +92,10 @@ func main() {
 	e.GET("/repo/:repo/:ref/commits", handler.Commits)
 
 	e.GET("/repo/:repo/blob/*", handler.File)
-	e.GET("/repo/:repo/:ref/blob/*", handler.File)
+	e.GET("/repo/:repo/commit/:commit/blob/*", handler.File)
 
 	e.GET("/repo/:repo/tree/*", handler.FileTree)
-	e.GET("/repo/:repo/:ref/tree/*", handler.FileTree)
+	e.GET("/repo/:repo/commit/:commit/tree/*", handler.FileTree)
 
 	e.GET("/repo/:repo/commit/:oidA", handler.Diff)
 

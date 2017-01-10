@@ -26,9 +26,7 @@ func FileTree(c echo.Context) error {
 		return nil
 	}
 
-	if c.Param("*") != "" {
-		path = c.Param("*")
-	}
+	path = helper.PathParam(c)
 
 	t, _ := commit.Tree()
 

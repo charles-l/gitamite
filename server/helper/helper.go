@@ -11,6 +11,7 @@ import (
 	"github.com/libgit2/git2go"
 
 	"fmt"
+	"path"
 )
 
 func defaultCommit(r *gitamite.Repo, ref *gitamite.Ref) (*gitamite.Commit, error) {
@@ -43,6 +44,15 @@ func Ref(c echo.Context) (*gitamite.Ref, error) {
 	}
 	ref, err := repo.LookupRef(refstr)
 	return &ref, err
+}
+
+// sanatizes the path: don't every call Param("*") directly
+func PathParam(c echo.Context) string {
+	p := path.Clean(c.Param("*"))
+	if p == "" {
+		p = "/"
+	}
+	return p
 }
 
 func Commit(c echo.Context) (*gitamite.Commit, error) {

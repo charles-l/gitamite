@@ -20,7 +20,7 @@ func File(c echo.Context) error {
 		return err
 	}
 
-	s, err := repo.ReadBlob(commit, c.Param("*"))
+	s, err := repo.ReadBlob(commit, helper.PathParam(c))
 	if err != nil {
 		return err
 	}

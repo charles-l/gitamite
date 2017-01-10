@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/charles-l/gitamite"
 	"github.com/tucnak/climax"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -21,25 +22,26 @@ func createRepoRequest(ctx climax.Context) int {
 	u := url.URL{
 		Scheme: "http",
 		Host:   "localhost:8000",
-		Path:   "/repos",
+		Path:   "/repo",
 	}
 
-	if len(ctx.Args) == 0 {
+	if len(ctx.Args) < 2 {
 		errx(1, "need a name")
 	}
 	a, err := gitamite.CreateAuthRequest(struct {
 		Name string
 	}{
-		ctx.Args[0],
+		ctx.Args[1],
 	})
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	j, _ := json.Marshal(a)
-	_, err = http.Post(u.String(), "text/json", bytes.NewReader(j))
-	if err != nil {
-		errx(2, "request to remote failed: "+err.Error())
+	r, err := http.Post(u.String(), "text/json", bytes.NewReader(j))
+	if err != nil || r.StatusCode != http.StatusOK {
+		b, _ := ioutil.ReadAll(r.Body)
+		errx(2, "request to remote failed: "+string(b))
 	}
 	return 0
 }

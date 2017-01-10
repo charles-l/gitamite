@@ -1,0 +1,1 @@
+* repo description hook on remote that symlinks .git/description with a .description file

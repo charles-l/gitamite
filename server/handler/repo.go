@@ -11,41 +11,77 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"os"
 	"path"
 )
 
-func CreateRepo(c echo.Context) error {
+// TODO: Move to library
+func readAuthJSONRequest(c echo.Context) (*gitamite.AuthRequest, error) {
 	blob, err := ioutil.ReadAll(c.Request().Body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	var a gitamite.AuthRequest
 	err = json.Unmarshal(blob, &a)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if len(a.Signature) == 0 || a.Data == nil {
-		return fmt.Errorf("Need data and signature")
+		return nil, fmt.Errorf("Need data and signature")
 	}
 
 	if err := a.VerifyRequest(); err != nil {
-		return fmt.Errorf("Invalid signature")
+		return nil, fmt.Errorf("Invalid signature")
+	}
+	return &a, nil
+}
+
+func exists(filepath string) bool {
+	if stat, err := os.Stat(filepath); err == nil && stat.IsDir() {
+		return true
+	}
+	return false
+}
+
+func DeleteRepo(c echo.Context) error {
+	a, err := readAuthJSONRequest(c)
+	if err != nil {
+		return err
 	}
 
-	m := a.Data.(map[string]interface{})
-	var name string
-	for k, v := range m {
-		switch vv := v.(type) {
-		case string:
-			if k == "Name" {
-				name = vv
-			}
-		}
+	name, ok := a.Data.(map[string]interface{})["Name"].(string)
+	name = path.Clean(name) // sanatize
+
+	if !ok {
+		return fmt.Errorf("need a valid repo name")
 	}
-	if name == "" {
-		return fmt.Errorf("need a repository name")
+
+	repoPath := path.Join(gitamite.GlobalConfig.RepoDir, name)
+	if path.Dir(repoPath) == "/" || repoPath == "/" {
+		log.Fatal("cowardly bailing out 'cause I don't want to accidentally delete something important: " + repoPath)
+	}
+	if !exists(repoPath) {
+		return fmt.Errorf("repo doesn't exist")
+	}
+	log.Printf("deleting repo %s", repoPath)
+	os.RemoveAll(repoPath)
+	delete(c.(*server.Context).Repos, name)
+	return nil
+}
+
+func CreateRepo(c echo.Context) error {
+	a, err := readAuthJSONRequest(c)
+	if err != nil {
+		return err
+	}
+
+	name, ok := a.Data.(map[string]interface{})["Name"].(string)
+	name = path.Clean(name) // sanatize
+
+	if !ok {
+		return fmt.Errorf("need a valid repo name")
 	}
 
 	newRepoPath := path.Join(gitamite.GlobalConfig.RepoDir, name)

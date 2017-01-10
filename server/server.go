@@ -124,6 +124,7 @@ func main() {
 	e.GET("/repo/:repo/commit/:oidA", handler.Diff)
 
 	e.POST("/repo", handler.CreateRepo)
+	e.DELETE("/repo", handler.DeleteRepo)
 
 	e.Logger.Fatal(e.Start(":8000"))
 }

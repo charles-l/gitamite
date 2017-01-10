@@ -85,6 +85,10 @@ func CreateRepo(c echo.Context) error {
 	}
 
 	newRepoPath := path.Join(gitamite.GlobalConfig.RepoDir, name)
+	if exists(newRepoPath) {
+		return fmt.Errorf("repo already exists")
+	}
+
 	log.Printf("creating new repo: %s", newRepoPath)
 
 	repo, err := git.InitRepository(newRepoPath, true)

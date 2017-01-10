@@ -10,7 +10,11 @@ import (
 )
 
 func File(c echo.Context) error {
-	repo, _ := helper.Repo(c)
+	repo, err := helper.Repo(c)
+	if err != nil {
+		return err
+	}
+
 	commit, err := helper.Commit(c)
 	if err != nil {
 		return err

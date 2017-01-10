@@ -9,6 +9,8 @@ import (
 
 	"github.com/labstack/echo"
 	"github.com/libgit2/git2go"
+
+	"fmt"
 )
 
 func defaultCommit(r *gitamite.Repo, ref *gitamite.Ref) (*gitamite.Commit, error) {
@@ -26,7 +28,11 @@ func defaultCommit(r *gitamite.Repo, ref *gitamite.Ref) (*gitamite.Commit, error
 }
 
 func Repo(c echo.Context) (*gitamite.Repo, error) {
-	return c.(*server.Context).Repos[c.Param("repo")], nil
+	repo := c.(*server.Context).Repos[c.Param("repo")]
+	if repo == nil {
+		return nil, fmt.Errorf("no such repo")
+	}
+	return repo, nil
 }
 
 func Ref(c echo.Context) (*gitamite.Ref, error) {

@@ -11,7 +11,11 @@ import (
 
 // TODO: clean this up
 func Diff(c echo.Context) error {
-	repo, _ := helper.Repo(c)
+	repo, err := helper.Repo(c)
+	if err != nil {
+		return err
+	}
+
 	commitA, err := repo.LookupCommit(c.Param("oidA"))
 	if err != nil {
 		return err

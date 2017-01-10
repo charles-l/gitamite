@@ -98,6 +98,16 @@ func main() {
 		Funcs:  []template.FuncMap{templateFuncs},
 	})}
 	e.Renderer = r
+	e.HTTPErrorHandler = func(e error, c echo.Context) {
+		// TODO: don't always blame teh user :P
+		c.Render(http.StatusBadRequest, "error", struct {
+			Repo  *gitamite.Repo
+			Error string
+		}{
+			&gitamite.Repo{}, // TODO: make this better
+			e.Error(),
+		})
+	}
 
 	e.GET("/repo/:repo", handler.FileTree)
 	e.GET("/repo/:repo/refs", handler.Refs)

@@ -9,11 +9,20 @@ import (
 )
 
 func Commits(c echo.Context) error {
-	repo, _ := helper.Repo(c)
+	repo, err := helper.Repo(c)
+	if err != nil {
+		return err
+	}
 
 	ref, err := helper.Ref(c)
 	if err != nil {
-		return err
+		// TODO: pass server name
+		c.Render(http.StatusOK, "empty", struct {
+			Repo *gitamite.Repo
+		}{
+			repo,
+		})
+		return nil
 	}
 
 	log := gitamite.GetCommitLog(repo, ref)

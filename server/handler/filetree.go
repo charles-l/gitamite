@@ -10,10 +10,20 @@ import (
 
 func FileTree(c echo.Context) error {
 	path := "/"
-	repo, _ := helper.Repo(c)
-	commit, err := helper.Commit(c)
+	repo, err := helper.Repo(c)
 	if err != nil {
 		return err
+	}
+
+	commit, err := helper.Commit(c)
+	if err != nil {
+		// TODO: pass server name
+		c.Render(http.StatusOK, "empty", struct {
+			Repo *gitamite.Repo
+		}{
+			repo,
+		})
+		return nil
 	}
 
 	if c.Param("*") != "" {

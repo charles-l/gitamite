@@ -11,7 +11,10 @@ import (
 )
 
 func Refs(c echo.Context) error {
-	repo, _ := helper.Repo(c)
+	repo, err := helper.Repo(c)
+	if err != nil {
+		return err
+	}
 
 	iter, _ := repo.NewBranchIterator(git.BranchLocal)
 

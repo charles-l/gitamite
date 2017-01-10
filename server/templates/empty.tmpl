@@ -1,0 +1,11 @@
+{{define "empty"}}
+<b>You've got an empty repo!</b>
+<p>Make some commits and push 'em</p>
+<pre>
+echo '# {{.Repo.Name}}' > README.md
+git add --all
+git commit -m 'initial commit!'
+git remote add origin git@server:/repos/{{.Repo.Name}}
+git push -u origin master
+</pre>
+{{end}}

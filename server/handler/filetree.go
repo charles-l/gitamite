@@ -4,7 +4,9 @@ import (
 	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/helper"
 
+	"fmt"
 	"github.com/labstack/echo"
+	"log"
 	"net/http"
 )
 
@@ -39,7 +41,11 @@ func FileTree(c echo.Context) error {
 	if path == "/" || path == "" {
 		entries = gitamite.GetTreeEntries(t, "/")
 	} else {
-		entries = gitamite.GetSubTree(t, path)
+		entries, err = gitamite.GetSubTree(t, path)
+		if err != nil {
+			log.Printf("Filetree error: %v", err)
+			return fmt.Errorf("Failed to get file tree")
+		}
 	}
 
 	c.Render(http.StatusOK, "filelist",

@@ -176,13 +176,16 @@ func GetTreeEntries(t *git.Tree, treePath string) []TreeEntry {
 }
 
 // TODO: combine getTreeEntry and getSubTree into one function
-func GetSubTree(t *git.Tree, treePath string) []TreeEntry {
-	subentry, _ := t.EntryByPath(treePath)
+func GetSubTree(t *git.Tree, treePath string) ([]TreeEntry, error) {
+	subentry, err := t.EntryByPath(treePath)
+	if err != nil {
+		return nil, err
+	}
 	if subentry.Type != git.ObjectTree {
 		log.Fatal("path is not a subtree ", treePath, " - is ", subentry.Type)
 	}
 	subtree, _ := t.Object.Owner().LookupTree(subentry.Id)
-	return append([]TreeEntry{getParentDir(treePath)}, GetTreeEntries(subtree, treePath)...)
+	return append([]TreeEntry{getParentDir(treePath)}, GetTreeEntries(subtree, treePath)...), nil
 }
 
 func GetTreeEntry(t *git.Tree, treePath string) TreeEntry {

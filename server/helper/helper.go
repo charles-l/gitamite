@@ -49,7 +49,7 @@ func Ref(c echo.Context) (*gitamite.Ref, error) {
 // sanatizes the path: don't every call Param("*") directly
 func PathParam(c echo.Context) string {
 	p := path.Clean(c.Param("*"))
-	if p == "" {
+	if p == "" || p == "." {
 		p = "/"
 	}
 	return p

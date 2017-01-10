@@ -2,6 +2,8 @@ package handler
 
 import (
 	"github.com/charles-l/gitamite"
+	"github.com/charles-l/gitamite/server/context"
+	"github.com/libgit2/git2go"
 
 	"github.com/labstack/echo"
 
@@ -9,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"path"
 )
 
 func CreateRepo(c echo.Context) error {
@@ -31,6 +34,27 @@ func CreateRepo(c echo.Context) error {
 		return fmt.Errorf("Invalid signature")
 	}
 
-	log.Printf("creating new repo: %s", a.Data.(map[string]interface{})["Name"])
+	m := a.Data.(map[string]interface{})
+	var name string
+	for k, v := range m {
+		switch vv := v.(type) {
+		case string:
+			if k == "Name" {
+				name = vv
+			}
+		}
+	}
+	if name == "" {
+		return fmt.Errorf("need a repository name")
+	}
+
+	newRepoPath := path.Join(gitamite.GlobalConfig.RepoDir, name)
+	log.Printf("creating new repo: %s", newRepoPath)
+
+	repo, err := git.InitRepository(newRepoPath, true)
+	if err != nil {
+		return err
+	}
+	c.(*server.Context).Repos[name] = &gitamite.Repo{name, newRepoPath, "", repo}
 	return nil
 }

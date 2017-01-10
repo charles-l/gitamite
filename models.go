@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -42,19 +43,19 @@ type Repo struct {
 	*git.Repository
 }
 
-func LoadRepository(name string, path string) *Repo {
-	repo, err := git.OpenRepository(path)
+func LoadRepository(name string, repoPath string) *Repo {
+	repo, err := git.OpenRepository(repoPath)
 	if err != nil {
-		log.Fatal("failed to open repo ", path, ":", err)
+		log.Fatal("failed to open repo ", repoPath, ":", err)
 	}
-	desc, err := ioutil.ReadFile(path + "/.git/description")
+	desc, err := ioutil.ReadFile(path.Join(repoPath, "description"))
 	if err != nil {
-		log.Print("failed to get repo description ", path, ":", err)
+		log.Print("failed to get repo description ", repoPath, ":", err)
 		desc = []byte("")
 	}
 	return &Repo{
 		name,
-		path,
+		repoPath,
 		string(desc),
 		repo,
 	}

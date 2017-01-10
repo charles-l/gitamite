@@ -23,7 +23,10 @@ import (
 	"html/template"
 	"io"
 	"log"
+	"net/http"
+	"os"
 	"path"
+	"path/filepath"
 	"time"
 )
 
@@ -40,8 +43,19 @@ func (r *RenderWrapper) Render(w io.Writer, name string, data interface{}, c ech
 }
 
 func main() {
-	repos := map[string]*gitamite.Repo{
-		"gitamite": gitamite.LoadRepository("gitamite", ".."),
+	gitamite.GlobalConfig = gitamite.ParseConfig(gitamite.ConfigPath)
+	if gitamite.GlobalConfig == nil {
+		fmt.Fprintf(os.Stderr, "Need config file in %s\n", gitamite.ConfigPath)
+		return
+	}
+
+	repos := make(map[string]*gitamite.Repo)
+
+	matches, _ := filepath.Glob(path.Join(gitamite.GlobalConfig.RepoDir, "*"))
+	for _, p := range matches {
+		log.Printf("loading repo from %s\n", p)
+		name := filepath.Base(p)
+		repos[name] = gitamite.LoadRepository(name, p)
 	}
 
 	e := echo.New()

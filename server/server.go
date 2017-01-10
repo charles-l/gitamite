@@ -24,7 +24,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"path"
 	"path/filepath"
 	"time"
@@ -43,12 +42,7 @@ func (r *RenderWrapper) Render(w io.Writer, name string, data interface{}, c ech
 }
 
 func main() {
-	gitamite.GlobalConfig = gitamite.ParseConfig(gitamite.ConfigPath)
-	if gitamite.GlobalConfig == nil {
-		fmt.Fprintf(os.Stderr, "Need config file in %s\n", gitamite.ConfigPath)
-		return
-	}
-
+	gitamite.LoadConfig()
 	repos := make(map[string]*gitamite.Repo)
 
 	matches, _ := filepath.Glob(path.Join(gitamite.GlobalConfig.RepoDir, "*"))

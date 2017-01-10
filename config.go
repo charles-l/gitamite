@@ -2,18 +2,42 @@ package gitamite
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
+	"os"
+	"reflect"
 )
 
 var GlobalConfig *Config
 
 const ConfigPath = "/etc/gitamite.conf"
 
+// TODO: use different config for client and server
 type Config struct {
-	RepoDir string
-	Auth    struct {
-		PrivateKeyring string
-		PublicKeyring  string
+	ServerAddr string // client
+	RepoDir    string // server
+
+	Auth struct {
+		PrivateKeyring string // client
+		PublicKeyring  string // server
+	}
+}
+
+func LoadConfig() {
+	GlobalConfig = ParseConfig(ConfigPath)
+	if GlobalConfig == nil {
+		fmt.Fprintf(os.Stderr, "Need config file in %s\n", ConfigPath)
+		return
+	}
+}
+
+// TODO: remove global and use a closure instead
+func GetConfigValue(field string) (string, error) {
+	r := reflect.ValueOf(GlobalConfig)
+	if f := reflect.Indirect(r).FieldByName(field); f.IsValid() && f.String() != "" {
+		return f.String(), nil
+	} else {
+		return "", fmt.Errorf("config value '%s' not set", field)
 	}
 }
 

@@ -18,21 +18,25 @@ func errx(code int, s string) {
 }
 
 func makeRequest(args []string, f func(url.URL, []byte) *http.Response) {
+	host, err := gitamite.GetConfigValue("ServerAddr")
+	if err != nil {
+		errx(1, err.Error())
+	}
 	u := url.URL{
 		Scheme: "http",
-		Host:   "localhost:8000", // TODO: read this from the config file
+		Host:   host,
 		Path:   "/repo",
 	}
 
 	// TODO: generalize the request struct when needed
-	if len(args) < 2 {
+	if len(args) < 1 {
 		errx(1, "need a name")
 	}
 
 	a, err := gitamite.CreateAuthRequest(struct {
 		Name string
 	}{
-		args[1],
+		args[0],
 	})
 	if err != nil {
 		errx(1, err.Error())
@@ -72,6 +76,8 @@ func deleteRepoRequest(ctx climax.Context) int {
 }
 
 func main() {
+	gitamite.LoadConfig()
+
 	cli := climax.New("gitamite")
 	cli.Brief = "gitamite client"
 	cli.Version = "1.0"

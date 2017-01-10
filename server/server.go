@@ -115,6 +115,7 @@ func main() {
 	e.GET("/repo/:repo/:ref/commits", handler.Commits)
 
 	e.GET("/repo/:repo/blob/*", handler.File)
+	e.GET("/repo/:repo/blame/blob/*", handler.FileBlame)
 	e.GET("/repo/:repo/commit/:commit/blob/*", handler.File)
 
 	e.GET("/repo/:repo/tree/*", handler.FileTree)

@@ -1,4 +1,9 @@
 {{define "file"}}
+{{if .BlameURL}}
+    <a href="{{.BlameURL}}">Blame</a>
+{{else}}
+    <a href="{{.FileURL}}">File</a>
+{{end}}
     <pre>
 {{.Text}}
     </pre>

@@ -1,11 +1,13 @@
 package gitamite
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"path"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/libgit2/git2go"
@@ -165,6 +167,32 @@ func (repo *Repo) ReadBlob(commit *Commit, filepath string) ([]byte, error) {
 	}
 
 	return b.Contents(), nil
+}
+
+// TODO: don't return a byte array: return an array of structs
+func (repo *Repo) ReadBlobBlame(commit *Commit, filepath string) ([]byte, error) {
+	o, _ := git.DefaultBlameOptions()
+	o.NewestCommit = commit.Id()
+	blame, err := repo.BlameFile(filepath, &o)
+	if err != nil {
+		return nil, err
+	}
+	blob, err := repo.ReadBlob(commit, filepath)
+	var out [][]byte
+	// TODO: handle windows line endings
+	for nu, l := range bytes.Split(blob, []byte{'\n'}) {
+		hunk, err := blame.HunkByLine(nu + 1)
+		if err != nil {
+			// TODO: FIXME: a quick 'n' dirty hack
+			continue
+		}
+		out = append(out, bytes.Join([][]byte{
+			[]byte(hunk.FinalSignature.Email),
+			[]byte(strconv.Itoa(nu)),
+			l},
+			[]byte("\t")))
+	}
+	return bytes.Join(out, []byte("\n")), nil
 }
 
 func GetTreeEntries(t *git.Tree, treePath string) []TreeEntry {

@@ -91,16 +91,21 @@ func main() {
 		Layout: "layout",
 		Funcs:  []template.FuncMap{templateFuncs},
 	})}
+
 	e.Renderer = r
 	e.HTTPErrorHandler = func(e error, c echo.Context) {
-		// TODO: don't always blame teh user :P
-		c.Render(http.StatusBadRequest, "error", struct {
-			Repo  *gitamite.Repo
-			Error string
-		}{
-			&gitamite.Repo{}, // TODO: make this better
-			e.Error(),
-		})
+		if c.Request().Header.Get("Content-Type") != "application/json" {
+			// TODO: don't always blame teh user :P
+			c.Render(http.StatusBadRequest, "error", struct {
+				Repo  *gitamite.Repo
+				Error string
+			}{
+				&gitamite.Repo{}, // TODO: make this better
+				e.Error(),
+			})
+		} else {
+			c.JSON(400, struct{ Error string }{e.Error()})
+		}
 	}
 
 	e.GET("/repo/:repo", handler.FileTree)

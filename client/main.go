@@ -53,7 +53,7 @@ func makeRequest(args []string, f func(url.URL, []byte) *http.Response) {
 
 func createRepoRequest(ctx climax.Context) int {
 	makeRequest(ctx.Args, func(u url.URL, blob []byte) *http.Response {
-		r, err := http.Post(u.String(), "text/json", bytes.NewReader(blob))
+		r, err := http.Post(u.String(), "application/json", bytes.NewReader(blob))
 		if err != nil {
 			errx(3, err.Error())
 		}
@@ -63,8 +63,16 @@ func createRepoRequest(ctx climax.Context) int {
 }
 
 func deleteRepoRequest(ctx climax.Context) int {
+	var inp string
+	fmt.Printf("Are you SURE you want to delete this repo? If so, type its name again:\n")
+	fmt.Scanln(&inp)
+	if len(ctx.Args) == 0 || ctx.Args[0] != inp {
+		errx(0, "Not deleting repo")
+	}
+
 	makeRequest(ctx.Args, func(u url.URL, blob []byte) *http.Response {
 		d, _ := http.NewRequest(http.MethodDelete, u.String(), bytes.NewReader(blob))
+		d.Header.Set("Content-Type", "application/json")
 		client := &http.Client{}
 		r, err := client.Do(d)
 		if err != nil {

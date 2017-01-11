@@ -13,7 +13,7 @@ type AuthRequest struct {
 }
 
 // TODO make sure to memoize
-func readKeyringFile(path string) (openpgp.EntityList, error) {
+func ReadKeyringFile(path string) (openpgp.EntityList, error) {
 	f, err := ioutil.ReadFile(path)
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func readKeyringFile(path string) (openpgp.EntityList, error) {
 
 func (r AuthRequest) VerifyRequest() error {
 	// FIXME config keyring loc
-	keyring, _ := readKeyringFile("/home/nc/.gnupg/pubring.gpg")
+	keyring, _ := ReadKeyringFile("/home/nc/.gnupg/pubring.gpg")
 
 	blob, _ := json.Marshal(r.Data) // FIXME: unmarshaling then marshaling again
 	if _, err := openpgp.CheckArmoredDetachedSignature(keyring,
@@ -42,7 +42,7 @@ func (r AuthRequest) VerifyRequest() error {
 
 func CreateAuthRequest(data interface{}) (AuthRequest, error) {
 	// FIXME config keyring loc
-	keyring, _ := readKeyringFile("/home/nc/.gnupg/secring.gpg")
+	keyring, _ := ReadKeyringFile("/home/nc/.gnupg/secring.gpg")
 
 	r := AuthRequest{}
 	r.Data = data

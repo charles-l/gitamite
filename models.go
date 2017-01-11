@@ -8,14 +8,55 @@ import (
 	"path"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/libgit2/git2go"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
 )
+
+func getParentDir(path string) TreeEntry {
+	dir, _ := filepath.Split(path)
+
+	g := git.TreeEntry{
+		Name: "..",
+		Type: git.ObjectTree,
+	}
+
+	t := TreeEntry{dir, &g}
+	return t
+}
 
 type TreeEntry struct {
 	DirPath string
 	*git.TreeEntry
+}
+
+func GetTreeEntries(t *git.Tree, treePath string) []TreeEntry {
+	var r []TreeEntry
+	for i := uint64(0); i < t.EntryCount(); i++ {
+		r = append(r, TreeEntry{treePath, t.EntryByIndex(i)})
+	}
+	return r
+}
+
+// TODO: combine getTreeEntry and getSubTree into one function
+func GetSubTree(t *git.Tree, treePath string) ([]TreeEntry, error) {
+	subentry, err := t.EntryByPath(treePath)
+	if err != nil {
+		return nil, err
+	}
+	if subentry.Type != git.ObjectTree {
+		log.Fatal("path is not a subtree ", treePath, " - is ", subentry.Type)
+	}
+	subtree, _ := t.Object.Owner().LookupTree(subentry.Id)
+	return append([]TreeEntry{getParentDir(treePath)}, GetTreeEntries(subtree, treePath)...), nil
+}
+
+func GetTreeEntry(t *git.Tree, treePath string) TreeEntry {
+	e, _ := t.EntryByPath(treePath)
+	return TreeEntry{treePath, e}
 }
 
 type Ref struct {
@@ -26,6 +67,14 @@ func (r Ref) NiceName() string {
 	return filepath.Base(r.Name())
 }
 
+func (r Repo) LookupRef(ref string) (Ref, error) {
+	master, err := r.LookupBranch(ref, git.BranchAll)
+	if err != nil {
+		return Ref{}, fmt.Errorf("failed to fetch ref: " + err.Error())
+	}
+	return Ref{master.Reference}, nil
+}
+
 type Diff struct {
 	CommitA *Commit
 	CommitB *Commit
@@ -34,41 +83,39 @@ type Diff struct {
 	*git.Diff
 }
 
+func GetDiff(repo *Repo, commitA *Commit, commitB *Commit) Diff {
+	treeA, _ := commitA.Tree()
+	var treeB *git.Tree
+	if commitB == nil {
+		treeB = nil
+	} else {
+		treeB, _ = commitB.Tree()
+	}
+	o, _ := git.DefaultDiffOptions()
+	diff, _ := repo.DiffTreeToTree(treeA, treeB, &o)
+
+	stats, _ := diff.Stats()
+	statsStr, _ := stats.String(git.DiffStatsFull, 80)
+
+	r := Diff{
+		commitA,
+		commitB,
+		statsStr,
+		[]string{},
+		diff,
+	}
+	n, _ := diff.NumDeltas()
+	for i := 0; i < n; i++ {
+		patch, _ := diff.Patch(i)
+
+		s, _ := patch.String()
+		r.Patches = append(r.Patches, s)
+	}
+	return r
+}
+
 type Commit struct {
 	*git.Commit
-}
-
-type Repo struct {
-	Name        string
-	Filepath    string
-	Description string
-	*git.Repository
-}
-
-func LoadRepository(name string, repoPath string) *Repo {
-	repo, err := git.OpenRepository(repoPath)
-	if err != nil {
-		log.Fatal("failed to open repo ", repoPath, ":", err)
-	}
-	desc, err := ioutil.ReadFile(path.Join(repoPath, "description"))
-	if err != nil {
-		log.Print("failed to get repo description ", repoPath, ":", err)
-		desc = []byte("")
-	}
-	return &Repo{
-		name,
-		repoPath,
-		string(desc),
-		repo,
-	}
-}
-
-func (r Repo) LookupRef(ref string) (Ref, error) {
-	master, err := r.LookupBranch(ref, git.BranchAll)
-	if err != nil {
-		return Ref{}, fmt.Errorf("failed to fetch ref: " + err.Error())
-	}
-	return Ref{master.Reference}, nil
 }
 
 func (r Repo) LookupCommit(hash string) (*Commit, error) {
@@ -114,35 +161,29 @@ func (c Commit) Date() time.Time {
 	return c.Author().When
 }
 
-func GetDiff(repo *Repo, commitA *Commit, commitB *Commit) Diff {
-	treeA, _ := commitA.Tree()
-	var treeB *git.Tree
-	if commitB == nil {
-		treeB = nil
-	} else {
-		treeB, _ = commitB.Tree()
-	}
-	o, _ := git.DefaultDiffOptions()
-	diff, _ := repo.DiffTreeToTree(treeA, treeB, &o)
+type Repo struct {
+	Name        string
+	Filepath    string
+	Description string
+	*git.Repository
+}
 
-	stats, _ := diff.Stats()
-	statsStr, _ := stats.String(git.DiffStatsFull, 80)
-
-	r := Diff{
-		commitA,
-		commitB,
-		statsStr,
-		[]string{},
-		diff,
+func LoadRepository(name string, repoPath string) *Repo {
+	repo, err := git.OpenRepository(repoPath)
+	if err != nil {
+		log.Fatal("failed to open repo ", repoPath, ":", err)
 	}
-	n, _ := diff.NumDeltas()
-	for i := 0; i < n; i++ {
-		patch, _ := diff.Patch(i)
-
-		s, _ := patch.String()
-		r.Patches = append(r.Patches, s)
+	desc, err := ioutil.ReadFile(path.Join(repoPath, "description"))
+	if err != nil {
+		log.Print("failed to get repo description ", repoPath, ":", err)
+		desc = []byte("")
 	}
-	return r
+	return &Repo{
+		name,
+		repoPath,
+		string(desc),
+		repo,
+	}
 }
 
 func (repo *Repo) ReadBlob(commit *Commit, filepath string) ([]byte, error) {
@@ -188,47 +229,49 @@ func (repo *Repo) ReadBlobBlame(commit *Commit, filepath string) ([]byte, error)
 		}
 		out = append(out, bytes.Join([][]byte{
 			[]byte(hunk.FinalSignature.Email),
-			[]byte(strconv.Itoa(nu)),
+			[]byte(strconv.Itoa(nu + 1)),
 			l},
 			[]byte("\t")))
 	}
 	return bytes.Join(out, []byte("\n")), nil
 }
 
-func GetTreeEntries(t *git.Tree, treePath string) []TreeEntry {
-	var r []TreeEntry
-	for i := uint64(0); i < t.EntryCount(); i++ {
-		r = append(r, TreeEntry{treePath, t.EntryByIndex(i)})
-	}
-	return r
+type User struct {
+	Name   string
+	Email  string
+	Entity *openpgp.Entity
 }
 
-// TODO: combine getTreeEntry and getSubTree into one function
-func GetSubTree(t *git.Tree, treePath string) ([]TreeEntry, error) {
-	subentry, err := t.EntryByPath(treePath)
+func ArmoredPublicKey(u *User) *bytes.Buffer {
+	b := bytes.NewBuffer([]byte{})
+	w, err := armor.Encode(b, "PUBLIC KEY BLOCK", map[string]string{})
 	if err != nil {
-		return nil, err
+		return nil
 	}
-	if subentry.Type != git.ObjectTree {
-		log.Fatal("path is not a subtree ", treePath, " - is ", subentry.Type)
-	}
-	subtree, _ := t.Object.Owner().LookupTree(subentry.Id)
-	return append([]TreeEntry{getParentDir(treePath)}, GetTreeEntries(subtree, treePath)...), nil
+	u.Entity.Serialize(w)
+	w.Close()
+	return b
 }
 
-func GetTreeEntry(t *git.Tree, treePath string) TreeEntry {
-	e, _ := t.EntryByPath(treePath)
-	return TreeEntry{treePath, e}
-}
+func GetUserFromEmail(email string) *User {
+	keys, _ := ReadKeyringFile(GlobalConfig.Auth.PublicKeyring)
 
-func getParentDir(path string) TreeEntry {
-	dir, _ := filepath.Split(path)
+	var u User
 
-	g := git.TreeEntry{
-		Name: "..",
-		Type: git.ObjectTree,
+	for _, e := range keys {
+		for k, _ := range e.Identities {
+			s := strings.Split(k, "<")
+			m := s[1][:len(s[1])-1]
+			if m == email {
+				u.Name = s[0]
+				u.Email = m
+				u.Entity = e
+			}
+		}
 	}
 
-	t := TreeEntry{dir, &g}
-	return t
+	if u == (User{}) {
+		return nil
+	}
+	return &u
 }

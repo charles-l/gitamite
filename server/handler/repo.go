@@ -59,13 +59,19 @@ func DeleteRepo(c echo.Context) error {
 		return fmt.Errorf("need a valid repo name")
 	}
 
-	repoPath := path.Join(gitamite.GlobalConfig.RepoDir, name)
+	p, err := gitamite.GetConfigValue("repo_dir")
+	if err != nil {
+		return err
+	}
+
+	repoPath := path.Join(p, name)
 	if path.Dir(repoPath) == "/" || repoPath == "/" {
 		log.Fatal("cowardly bailing out 'cause I don't want to accidentally delete something important: " + repoPath)
 	}
 	if !exists(repoPath) {
 		return fmt.Errorf("repo doesn't exist")
 	}
+
 	log.Printf("deleting repo %s", repoPath)
 	os.RemoveAll(repoPath)
 	delete(c.(*server.Context).Repos, name)
@@ -85,7 +91,12 @@ func CreateRepo(c echo.Context) error {
 		return fmt.Errorf("need a valid repo name")
 	}
 
-	newRepoPath := path.Join(gitamite.GlobalConfig.RepoDir, name)
+	p, err := gitamite.GetConfigValue("repo_dir")
+	if err != nil {
+		return err
+	}
+
+	newRepoPath := path.Join(p, name)
 	if exists(newRepoPath) {
 		return fmt.Errorf("repo already exists")
 	}

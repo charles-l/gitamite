@@ -254,7 +254,11 @@ func ArmoredPublicKey(u *User) *bytes.Buffer {
 }
 
 func GetUserFromEmail(email string) *User {
-	keys, _ := ReadKeyringFile(GlobalConfig.Auth.PublicKeyring)
+	p, err := GetConfigValue("pubkeyring_path")
+	if err != nil {
+		return nil
+	}
+	keys, _ := ReadKeyringFile(p)
 
 	var u User
 

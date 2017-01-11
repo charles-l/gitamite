@@ -43,10 +43,16 @@ func (r *RenderWrapper) Render(w io.Writer, name string, data interface{}, c ech
 }
 
 func main() {
-	gitamite.LoadConfig()
+	gitamite.LoadConfig(gitamite.Server)
 	repos := make(map[string]*gitamite.Repo)
 
-	matches, _ := filepath.Glob(path.Join(gitamite.GlobalConfig.RepoDir, "*"))
+	repoDir, err := gitamite.GetConfigValue("repo_dir")
+	if err != nil {
+		// bail out if no repo path has been set
+		// we really don't want to accidentally overwrite stuff in /
+		return
+	}
+	matches, _ := filepath.Glob(path.Join(repoDir, "*"))
 	for _, p := range matches {
 		log.Printf("loading repo from %s\n", p)
 		name := filepath.Base(p)

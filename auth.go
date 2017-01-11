@@ -3,6 +3,7 @@ package gitamite
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"golang.org/x/crypto/openpgp"
 	"io/ioutil"
 )
@@ -28,8 +29,13 @@ func ReadKeyringFile(path string) (openpgp.EntityList, error) {
 }
 
 func (r AuthRequest) VerifyRequest() error {
-	// FIXME config keyring loc
-	keyring, _ := ReadKeyringFile("/home/nc/.gnupg/pubring.gpg")
+	// TODO: move this to models.go
+	p, err := GetConfigValue("pubkeyring_path")
+	if err != nil {
+		return fmt.Errorf("failed to read public keyring")
+	}
+
+	keyring, _ := ReadKeyringFile(p)
 
 	blob, _ := json.Marshal(r.Data) // FIXME: unmarshaling then marshaling again
 	if _, err := openpgp.CheckArmoredDetachedSignature(keyring,
@@ -41,14 +47,18 @@ func (r AuthRequest) VerifyRequest() error {
 }
 
 func CreateAuthRequest(data interface{}) (AuthRequest, error) {
-	// FIXME config keyring loc
-	keyring, _ := ReadKeyringFile("/home/nc/.gnupg/secring.gpg")
+	p, err := GetConfigValue("privkeyring_file")
+	if err != nil {
+		return AuthRequest{}, nil
+	}
+
+	keyring, _ := ReadKeyringFile(p)
 
 	r := AuthRequest{}
 	r.Data = data
 	sig := bytes.NewBufferString("")
 	blob, _ := json.Marshal(data)
-	err := openpgp.ArmoredDetachSign(sig, keyring[0], bytes.NewReader(blob), nil)
+	err = openpgp.ArmoredDetachSign(sig, keyring[0], bytes.NewReader(blob), nil)
 	if err != nil {
 		return AuthRequest{}, err
 	}

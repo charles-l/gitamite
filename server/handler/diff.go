@@ -24,7 +24,7 @@ func Diff(c echo.Context) error {
 	var commitB *gitamite.Commit
 	if c.Param("oidB") == "" {
 		if commitA.ParentCount() > 0 {
-			commitB = &gitamite.Commit{commitA.Parent(0)}
+			commitB = gitamite.MakeCommit(commitA.Parent(0))
 		} else {
 			commitB = nil
 		}

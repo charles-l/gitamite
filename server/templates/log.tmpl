@@ -3,7 +3,7 @@
     <p>{{s_ify "commit" (len .Commits)}}</p>
     <table>
     {{range .Commits}}
-        <tr><td><a href="{{path $repo}}/commit/{{path .}}">{{.Message}}</a></td><td>{{.Author}}</td><td>{{.Date | humanizeTime}}</td></tr>
+        <tr><td><a href="{{path $repo}}/commit/{{path .}}">{{.Message}}</a></td><td><a href="{{.User | path}}">{{.User.Name}}</a></td><td>{{.Date | humanizeTime}}</td></tr>
     {{end}}
     </table>
 {{end}}

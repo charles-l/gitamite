@@ -38,3 +38,7 @@ func (t TreeEntry) URL() string {
 	}
 	return ""
 }
+
+func (u User) URL() string {
+	return path.Join("/", "user", u.Email)
+}

@@ -115,7 +115,13 @@ func GetDiff(repo *Repo, commitA *Commit, commitB *Commit) Diff {
 }
 
 type Commit struct {
+	User *User
 	*git.Commit
+}
+
+func MakeCommit(g *git.Commit) *Commit {
+	return &Commit{GetUserFromEmail(g.Committer().Email),
+		g}
 }
 
 func (r Repo) LookupCommit(hash string) (*Commit, error) {
@@ -129,7 +135,7 @@ func (r Repo) LookupCommit(hash string) (*Commit, error) {
 		return nil, err
 	}
 
-	return &Commit{c}, nil
+	return MakeCommit(c), nil
 }
 
 func GetCommitLog(repo *Repo, ref *Ref) []Commit {
@@ -147,8 +153,8 @@ func GetCommitLog(repo *Repo, ref *Ref) []Commit {
 	var commits []Commit
 	for r.Next(id) == nil {
 		g, _ := repo.Repository.LookupCommit(id)
-		c := Commit{g}
-		commits = append(commits, c)
+		c := MakeCommit(g)
+		commits = append(commits, *c)
 	}
 	return commits
 }

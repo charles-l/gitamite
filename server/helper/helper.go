@@ -25,7 +25,7 @@ func defaultCommit(r *gitamite.Repo, ref *gitamite.Ref) (*gitamite.Commit, error
 		return nil, err
 	}
 
-	return &gitamite.Commit{gcommit}, nil
+	return gitamite.MakeCommit(gcommit), nil
 }
 
 func Repo(c echo.Context) (*gitamite.Repo, error) {

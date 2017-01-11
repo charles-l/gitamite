@@ -18,7 +18,7 @@ func errx(code int, s string) {
 }
 
 func makeRequest(args []string, f func(url.URL, []byte) *http.Response) {
-	host, err := gitamite.GetConfigValue("ServerAddr")
+	host, err := gitamite.GetConfigValue("server_addr")
 	if err != nil {
 		errx(1, err.Error())
 	}

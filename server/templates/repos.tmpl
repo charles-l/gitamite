@@ -1,0 +1,7 @@
+{{define "repos"}}
+    <ul>
+        {{range .Repos}}
+            <li><a href="{{. | path}}">{{.Name}}</a></li>
+        {{end}}
+    </ul>
+{{end}}

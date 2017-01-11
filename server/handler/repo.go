@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"net/http"
 	"os"
 	"path"
 )
@@ -96,5 +97,23 @@ func CreateRepo(c echo.Context) error {
 		return err
 	}
 	c.(*server.Context).Repos[name] = &gitamite.Repo{name, newRepoPath, "", repo}
+	return nil
+}
+
+func Repos(c echo.Context) error {
+	repos := c.(*server.Context).Repos
+
+	vals := make([]*gitamite.Repo, 0, len(repos))
+	for _, v := range repos {
+		vals = append(vals, v)
+	}
+
+	c.Render(http.StatusOK, "repos", struct {
+		Repo  *gitamite.Repo
+		Repos []*gitamite.Repo
+	}{
+		&gitamite.Repo{},
+		vals,
+	})
 	return nil
 }

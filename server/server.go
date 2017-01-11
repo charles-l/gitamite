@@ -108,6 +108,10 @@ func main() {
 		}
 	}
 
+	e.Static("/a", "pub")
+
+	e.GET("/", handler.Repos)
+
 	e.GET("/repo/:repo", handler.FileTree)
 	e.GET("/repo/:repo/refs", handler.Refs)
 
@@ -125,6 +129,8 @@ func main() {
 
 	e.POST("/repo", handler.CreateRepo)
 	e.DELETE("/repo", handler.DeleteRepo)
+
+	e.GET("/user/:email", handler.User)
 
 	e.Logger.Fatal(e.Start(":8000"))
 }

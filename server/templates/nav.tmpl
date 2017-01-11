@@ -1,11 +1,15 @@
 {{define "nav"}}
 <header>
-    <h1>{{.Repo.Name}}</h1>
-    <p>{{.Repo.Description}}</p>
-    <nav>
-        <a href="{{path .Repo}}/">Files</a>
-        <a href="{{path .Repo}}/commits/">Log</a>
-        <a href="{{path .Repo}}/refs/">Branches</a>
-    </nav>
+    <section>
+        <nav>
+            <h3><a href="{{path .Repo}}/">{{.Repo.Name}}</a></h3>
+            <a href="{{path .Repo}}/">Files</a>
+            <a href="{{path .Repo}}/commits/">Log</a>
+            <a href="{{path .Repo}}/refs/">Branches</a>
+        </nav>
+    </section>
 </header>
+<section>
+<p>{{.Repo.Description}}</p>
+</section>
 {{end}}

@@ -18,6 +18,7 @@ import (
 
 	// helper
 	"github.com/dustin/go-humanize"
+	"github.com/libgit2/git2go"
 
 	"fmt"
 	"html/template"
@@ -84,6 +85,9 @@ func main() {
 			// TODO: cache this instead of parsing every time
 			s := blackfriday.MarkdownCommon([]byte(fmt.Sprintf("%s", args...)))
 			return template.HTML(s)
+		},
+		"is_file": func(t gitamite.TreeEntry) bool {
+			return t.Type == git.ObjectBlob
 		},
 	}
 

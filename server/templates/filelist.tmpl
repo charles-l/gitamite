@@ -2,7 +2,8 @@
     {{$repo := .Repo}}
     <table>
     {{range .Entries}}
-        <tr><td><a href="{{path $repo .}}">{{.Name}}</a></td></tr>
+        <tr><td>{{if is_file .}}<a href="{{path $repo .}}">{{.Name}}</a>
+            {{else}}<a href="{{path $repo .}}"><b>{{.Name}}/</b></a>{{end}}</td></tr>
     {{end}}
     </table>
 

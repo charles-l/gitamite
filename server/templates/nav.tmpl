@@ -2,14 +2,22 @@
 <header>
     <section>
         <nav>
-            <h3><a href="{{path .Repo}}/">{{.Repo.Name}}</a></h3>
-            <a href="{{path .Repo}}/">Files</a>
-            <a href="{{path .Repo}}/commits/">Log</a>
-            <a href="{{path .Repo}}/refs/">Branches</a>
+            {{if .Repo}}
+                <h3><a href="{{path .Repo}}/">{{.Repo.Name}}</a></h3>
+                <a href="{{path .Repo}}/">Files</a>
+                <a href="{{path .Repo}}/commits/">Log</a>
+                <a href="{{path .Repo}}/refs/">Branches</a>
+            {{else}}
+                <h3><a href="/">Repos</a></h3>
+            {{end}}
         </nav>
     </section>
 </header>
 <section>
+{{if .Repo}}
 <p>{{.Repo.Description}}</p>
+{{else}}
+<p></p>
+{{end}}
 </section>
 {{end}}

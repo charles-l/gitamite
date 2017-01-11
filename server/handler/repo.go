@@ -112,7 +112,7 @@ func Repos(c echo.Context) error {
 		Repo  *gitamite.Repo
 		Repos []*gitamite.Repo
 	}{
-		&gitamite.Repo{},
+		nil,
 		vals,
 	})
 	return nil

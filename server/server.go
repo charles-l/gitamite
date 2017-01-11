@@ -104,7 +104,7 @@ func main() {
 				Repo  *gitamite.Repo
 				Error string
 			}{
-				&gitamite.Repo{}, // TODO: make this better
+				nil,
 				e.Error(),
 			})
 		} else {

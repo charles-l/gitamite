@@ -39,10 +39,10 @@ func Diff(c echo.Context) error {
 
 	c.Render(http.StatusOK, "diff", struct {
 		Repo *gitamite.Repo
-		Diff gitamite.Diff
+		Diff *gitamite.Diff
 	}{
 		repo,
-		diff,
+		&diff,
 	})
 	return nil
 }

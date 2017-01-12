@@ -2,7 +2,5 @@
     <pre>
 {{.Diff.Stats}}
     </pre>
-    {{range .Diff.Patches}}
-{{highlight . "diff"}}
-    {{end}}
+    {{highlight_blobs .Diff.Patches "diff"}}
 {{end}}

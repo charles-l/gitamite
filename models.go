@@ -105,7 +105,7 @@ type Diff struct {
 	CommitA *Commit
 	CommitB *Commit
 	Stats   string
-	Patches [][]byte
+	Patches *[][]byte
 	*git.Diff
 }
 
@@ -127,16 +127,18 @@ func GetDiff(repo *Repo, commitA *Commit, commitB *Commit) Diff {
 		commitA,
 		commitB,
 		statsStr,
-		[][]byte{},
+		&[][]byte{},
 		diff,
 	}
 	n, _ := diff.NumDeltas()
+	var patches [][]byte
 	for i := 0; i < n; i++ {
 		patch, _ := diff.Patch(i)
 
 		s, _ := patch.String()
-		r.Patches = append(r.Patches, []byte(s))
+		patches = append(patches, []byte(s))
 	}
+	r.Patches = &patches
 	return r
 }
 
@@ -314,9 +316,9 @@ func GetUserFromEmail(email string) *User {
 
 // TODO: possibly do this for known blobs in a separate thread when staring the server?
 // TODO: make highlighting faster (thread rendering hunks)
-func HighlightedBlobHTML(blob []byte, t string) template.HTML {
+func HighlightedBlobHTML(blob *[]byte, t string) template.HTML {
 	m := md5.New()
-	m.Write(blob)
+	m.Write(*blob)
 	k := []byte("blob:" + hex.EncodeToString(m.Sum(nil)))
 
 	var htmlBlob []byte
@@ -333,12 +335,13 @@ func HighlightedBlobHTML(blob []byte, t string) template.HTML {
 		return template.HTML(string(htmlBlob))
 	}
 
-	h, err := pygments.Highlight(blob, t, "html", "utf-8")
+	h, err := pygments.Highlight(*blob, t, "html", "utf-8")
 	if err != nil {
-		h = "<pre>" + html.EscapeString(string(blob)) + "</pre>"
+		h = "<pre>" + html.EscapeString(string(*blob)) + "</pre>"
 	}
 	r := template.HTML(h)
 
+	// theoretically this is safe in a goroutine
 	db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket([]byte("blobCache"))
 		b.Put(k, []byte(h))

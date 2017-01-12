@@ -27,6 +27,8 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -98,8 +100,25 @@ func main() {
 		"is_file": func(t gitamite.TreeEntry) bool {
 			return t.Type == git.ObjectBlob
 		},
-		"highlight": func(p []byte, t string) template.HTML {
+		"highlight": func(p *[]byte, t string) template.HTML {
 			return gitamite.HighlightedBlobHTML(p, t)
+		},
+		"highlight_blobs": func(blobs *[][]byte, t string) template.HTML {
+			var wg sync.WaitGroup
+			outChan := make(chan string, len(*blobs))
+			for i := range *blobs {
+				wg.Add(1)
+				go func(b *[]byte) {
+					defer wg.Done()
+					outChan <- string(gitamite.HighlightedBlobHTML(b, t))
+				}(&(*blobs)[i])
+			}
+			wg.Wait()
+			a := make([]string, len(*blobs))
+			for i := range *blobs {
+				a[i] = <-outChan
+			}
+			return template.HTML(strings.Join(a, ""))
 		},
 	}
 

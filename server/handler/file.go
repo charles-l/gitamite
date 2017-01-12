@@ -4,11 +4,7 @@ import (
 	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/helper"
 
-	"github.com/charles-l/pygments"
 	"github.com/labstack/echo"
-
-	"html"
-	"html/template"
 
 	"fmt"
 	"log"
@@ -39,17 +35,16 @@ func File(c echo.Context) error {
 		ext = "text"
 	}
 
-	o, err := pygments.Highlight(s, ext, "html", "utf-8")
-	if err != nil {
-		o = "<pre>" + html.EscapeString(string(s)) + "</pre>"
-	}
 	c.Render(http.StatusOK, "file", struct {
-		Repo     *gitamite.Repo
-		Text     template.HTML
+		Repo *gitamite.Repo
+		Text []byte
+
+		FileExt  string
 		BlameURL string
 	}{
 		repo,
-		template.HTML(o),
+		s,
+		ext,
 		// TODO: pass the entity instead and use URLable
 		path.Join(repo.URL(), "blame", "blob", helper.PathParam(c)),
 	})
@@ -84,6 +79,7 @@ func FileBlame(c echo.Context) error {
 	}{
 		repo,
 		string(s),
+
 		"",
 		path.Join(repo.URL(), "blob", helper.PathParam(c)),
 	})

@@ -28,6 +28,8 @@ import (
 	"path"
 	"path/filepath"
 	"time"
+
+	"github.com/pkg/profile"
 )
 
 type RenderWrapper struct {
@@ -43,6 +45,11 @@ func (r *RenderWrapper) Render(w io.Writer, name string, data interface{}, c ech
 }
 
 func main() {
+	defer profile.Start().Stop()
+
+	gitamite.InitDB()
+	gitamite.HighlightBlobHTML([]byte("asdf"), "text")
+
 	gitamite.LoadConfig(gitamite.Server)
 	repos := make(map[string]*gitamite.Repo)
 
@@ -94,6 +101,9 @@ func main() {
 		},
 		"is_file": func(t gitamite.TreeEntry) bool {
 			return t.Type == git.ObjectBlob
+		},
+		"highlight": func(p []byte, t string) template.HTML {
+			return gitamite.HighlightBlobHTML(p, t)
 		},
 	}
 

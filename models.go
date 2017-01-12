@@ -12,9 +12,29 @@ import (
 	"time"
 
 	"github.com/libgit2/git2go"
+	"github.com/seppo0010/rlite-go"
+
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
+
+	"crypto/md5"
+	"encoding/hex"
+	"html"
+	"html/template"
+
+	// syntax highlighting with pygments
+	"github.com/charles-l/pygments"
 )
+
+var conn *rlite.Conn
+
+func InitDB() {
+	var err error
+	conn, err = rlite.Open(":memory:")
+	if err != nil {
+		log.Fatal(err)
+	}
+}
 
 func getParentDir(path string) TreeEntry {
 	dir, _ := filepath.Split(path)
@@ -79,7 +99,7 @@ type Diff struct {
 	CommitA *Commit
 	CommitB *Commit
 	Stats   string
-	Patches []string
+	Patches [][]byte
 	*git.Diff
 }
 
@@ -101,7 +121,7 @@ func GetDiff(repo *Repo, commitA *Commit, commitB *Commit) Diff {
 		commitA,
 		commitB,
 		statsStr,
-		[]string{},
+		[][]byte{},
 		diff,
 	}
 	n, _ := diff.NumDeltas()
@@ -109,7 +129,7 @@ func GetDiff(repo *Repo, commitA *Commit, commitB *Commit) Diff {
 		patch, _ := diff.Patch(i)
 
 		s, _ := patch.String()
-		r.Patches = append(r.Patches, s)
+		r.Patches = append(r.Patches, []byte(s))
 	}
 	return r
 }
@@ -200,7 +220,7 @@ func (repo *Repo) ReadBlob(commit *Commit, filepath string) ([]byte, error) {
 
 	te, _ := t.EntryByPath(filepath)
 	if te == nil {
-		return nil, fmt.Errorf("no such file/blob/tree entry %g", filepath)
+		return nil, fmt.Errorf("no such file/blob/tree entry %s", filepath)
 	}
 
 	f, err := repo.Lookup(te.Id)
@@ -284,4 +304,28 @@ func GetUserFromEmail(email string) *User {
 		return nil
 	}
 	return &u
+}
+
+// TODO: possibly do this for known blobs in a separate thread when staring the server?
+// TODO: make highlighting faster
+func HighlightBlobHTML(blob []byte, t string) template.HTML {
+	m := md5.New()
+	m.Write(blob)
+	k := "blob:" + hex.EncodeToString(m.Sum(nil))
+
+	exists, _ := rlite.Command(conn, []string{"EXISTS", k})
+	if exists.(int) == 1 {
+		b, _ := rlite.Command(conn, []string{"GET", k})
+		return template.HTML(b.(string))
+	}
+
+	h, err := pygments.Highlight(blob, t, "html", "utf-8")
+	if err != nil {
+		h = "<pre>" + html.EscapeString(string(blob)) + "</pre>"
+	}
+	r := template.HTML(h)
+
+	rlite.Command(conn, []string{"SET", k, h})
+
+	return r
 }

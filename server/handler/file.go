@@ -37,13 +37,13 @@ func File(c echo.Context) error {
 
 	c.Render(http.StatusOK, "file", struct {
 		Repo *gitamite.Repo
-		Text []byte
+		Text *[]byte
 
 		FileExt  string
 		BlameURL string
 	}{
 		repo,
-		s,
+		&s,
 		ext,
 		// TODO: pass the entity instead and use URLable
 		path.Join(repo.URL(), "blame", "blob", helper.PathParam(c)),
@@ -70,15 +70,17 @@ func FileBlame(c echo.Context) error {
 	}
 
 	c.Render(http.StatusOK, "file", struct {
-		Repo *gitamite.Repo
-		Text string
+		Repo    *gitamite.Repo
+		Text    *[]byte
+		FileExt string
 
 		BlameURL string
 		// TODO: pass the entity instead and use URLable
 		FileURL string
 	}{
 		repo,
-		string(s),
+		&s,
+		"blame",
 
 		"",
 		path.Join(repo.URL(), "blob", helper.PathParam(c)),

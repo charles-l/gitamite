@@ -12,7 +12,8 @@ import (
 	"time"
 
 	"github.com/libgit2/git2go"
-	"github.com/seppo0010/rlite-go"
+
+	"github.com/boltdb/bolt"
 
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/armor"
@@ -26,14 +27,19 @@ import (
 	"github.com/charles-l/pygments"
 )
 
-var conn *rlite.Conn
+var db *bolt.DB
 
-func InitDB() {
+func InitDB() *bolt.DB {
 	var err error
-	conn, err = rlite.Open(":memory:")
+	db, err = bolt.Open("/tmp/gitamite.db", 0666, nil)
 	if err != nil {
 		log.Fatal(err)
 	}
+	db.Update(func(tx *bolt.Tx) error {
+		tx.CreateBucketIfNotExists([]byte("blobCache"))
+		return nil
+	})
+	return db
 }
 
 func getParentDir(path string) TreeEntry {
@@ -307,16 +313,24 @@ func GetUserFromEmail(email string) *User {
 }
 
 // TODO: possibly do this for known blobs in a separate thread when staring the server?
-// TODO: make highlighting faster
-func HighlightBlobHTML(blob []byte, t string) template.HTML {
+// TODO: make highlighting faster (thread rendering hunks)
+func HighlightedBlobHTML(blob []byte, t string) template.HTML {
 	m := md5.New()
 	m.Write(blob)
-	k := "blob:" + hex.EncodeToString(m.Sum(nil))
+	k := []byte("blob:" + hex.EncodeToString(m.Sum(nil)))
 
-	exists, _ := rlite.Command(conn, []string{"EXISTS", k})
-	if exists.(int) == 1 {
-		b, _ := rlite.Command(conn, []string{"GET", k})
-		return template.HTML(b.(string))
+	var htmlBlob []byte
+
+	db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("blobCache"))
+		if e := b.Get(k); e != nil {
+			htmlBlob = e
+		}
+		return nil
+	})
+
+	if htmlBlob != nil {
+		return template.HTML(string(htmlBlob))
 	}
 
 	h, err := pygments.Highlight(blob, t, "html", "utf-8")
@@ -325,7 +339,11 @@ func HighlightBlobHTML(blob []byte, t string) template.HTML {
 	}
 	r := template.HTML(h)
 
-	rlite.Command(conn, []string{"SET", k, h})
+	db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket([]byte("blobCache"))
+		b.Put(k, []byte(h))
+		return nil
+	})
 
 	return r
 }

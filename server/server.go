@@ -20,6 +20,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/libgit2/git2go"
 
+	"bytes"
 	"fmt"
 	"html/template"
 	"io"
@@ -27,6 +28,7 @@ import (
 	"net/http"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -47,6 +49,7 @@ func (r *RenderWrapper) Render(w io.Writer, name string, data interface{}, c ech
 func main() {
 	db := gitamite.InitDB()
 	defer db.Close()
+	log.Printf("loaded DB")
 
 	gitamite.LoadConfig(gitamite.Server)
 	repos := make(map[string]*gitamite.Repo)
@@ -100,25 +103,44 @@ func main() {
 		"is_file": func(t gitamite.TreeEntry) bool {
 			return t.Type == git.ObjectBlob
 		},
-		"highlight": func(p *[]byte, t string) template.HTML {
-			return gitamite.HighlightedBlobHTML(p, t)
+		"highlight": func(b *gitamite.Blob) template.HTML {
+			return gitamite.HighlightedBlobHTML(b)
 		},
-		"highlight_blobs": func(blobs *[][]byte, t string) template.HTML {
+		"render_blob": func(b *gitamite.Blob) template.HTML {
+			buf := bytes.NewBufferString("<table class=\"diff highlight\">")
+
+			for nu, l := range strings.Split(string(gitamite.HighlightedBlobHTML(b)), "\n") {
+				buf.WriteString("<tr><td class=\"lineno\">" + strconv.Itoa(nu+1) + "</td><td>" + l + "</td></tr>")
+			}
+
+			buf.WriteString("</table>")
+			return template.HTML(buf.String())
+		},
+		"diff_add": func(l git.DiffLine) bool {
+			return l.Origin == git.DiffLineAddition
+		},
+		"diff_del": func(l git.DiffLine) bool {
+			return l.Origin == git.DiffLineDeletion
+		},
+		"highlight_blobs": func(blobs []*gitamite.Blob) template.HTML {
 			var wg sync.WaitGroup
-			outChan := make(chan string, len(*blobs))
-			for i := range *blobs {
+			outChan := make(chan string, len(blobs))
+			for i := range blobs {
 				wg.Add(1)
-				go func(b *[]byte) {
+				go func(b *gitamite.Blob) {
 					defer wg.Done()
-					outChan <- string(gitamite.HighlightedBlobHTML(b, t))
-				}(&(*blobs)[i])
+					outChan <- string(gitamite.HighlightedBlobHTML(b))
+				}(blobs[i])
 			}
 			wg.Wait()
-			a := make([]string, len(*blobs))
-			for i := range *blobs {
+			a := make([]string, len(blobs))
+			for i := range blobs {
 				a[i] = <-outChan
 			}
 			return template.HTML(strings.Join(a, ""))
+		},
+		"eqv": func(a interface{}, b interface{}) bool {
+			return a == b
 		},
 	}
 
@@ -154,7 +176,7 @@ func main() {
 	e.GET("/repo/:repo/:ref/commits", handler.Commits)
 
 	e.GET("/repo/:repo/blob/*", handler.File)
-	e.GET("/repo/:repo/blame/blob/*", handler.FileBlame)
+	e.GET("/repo/:repo/blame/blob/*", handler.Blame)
 	e.GET("/repo/:repo/commit/:commit/blob/*", handler.File)
 
 	e.GET("/repo/:repo/tree/*", handler.FileTree)

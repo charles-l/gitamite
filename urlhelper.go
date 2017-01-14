@@ -42,3 +42,11 @@ func (t TreeEntry) URL() string {
 func (u User) URL() string {
 	return path.Join("/", "user", u.Email)
 }
+
+func (b Blob) BlameURL() string {
+	return path.Join("blame", b.Path)
+}
+
+func (b Blob) BlobURL() string {
+	return path.Join("blob", b.Path)
+}

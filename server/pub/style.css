@@ -84,14 +84,53 @@ hr {
     overflow: visible; /* 2 */
 }
 
-pre {
+pre, table.diff td, table.diff th {
     font-family: Menlo, "Bitstream Vera Sans Mono", "DejaVu Sans Mono", Monaco, Consolas, monospace, monospace;
     font-size: 15px; /* fit 80 characters on screen - i think */
+    background: #ffffff;
+    white-space: pre;
+    border: 0px none;
+}
+
+table.diff caption {
+    font-weight: bold;
+}
+
+pre, table.diff {
     padding: 1.2em;
     border: 1px solid #eee;
-    overflow: scroll;
-    background: #ffffff;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-collapse: collapse;
+    border-spacing: 1.2em;
+
+    -webkit-box-sizing: border-box; /* Safari/Chrome, other WebKit */
+    -moz-box-sizing: border-box;    /* Firefox, other Gecko */
+    box-sizing: border-box;         /* Opera/IE 8+ */
 }
+
+.diff-add{
+    background-color: #c1e9c1 !important;
+}
+
+.diff-del{
+    background-color: #f1c0c0 !important;
+}
+
+.lineno {
+    padding: 0 10px 0 10px;
+    color: #ddd;
+}
+
+.lineno, .noselect {
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Chrome/Safari/Opera */
+    -khtml-user-select: none; /* Konqueror */
+    -moz-user-select: none; /* Firefox */
+    -ms-user-select: none; /* Internet Explorer/Edge */
+    user-select: none; /* Non-prefixed version, currently
+    not supported by any browser */
+                                                        }
 
 /* Text-level semantics
 ========================================================================== */

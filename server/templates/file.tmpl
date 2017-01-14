@@ -1,8 +1,5 @@
 {{define "file"}}
-{{if .BlameURL}}
-    <a href="{{.BlameURL}}">Blame</a>
-{{else}}
-    <a href="{{.FileURL}}">File</a>
-{{end}}
-{{highlight .Text .FileExt}}
+    <a href="{{.Repo | path}}/{{.Blob.BlameURL}}">Blame</a>
+    <a href="{{.Repo | path}}/{{.Blob.BlobURL}}">File</a>
+    {{render_blob .Blob}}
 {{end}}

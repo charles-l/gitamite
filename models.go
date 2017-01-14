@@ -7,7 +7,6 @@ import (
 	"log"
 	"path"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -101,11 +100,27 @@ func (r Repo) LookupRef(ref string) (Ref, error) {
 	return Ref{master.Reference}, nil
 }
 
+type DiffHunk struct {
+	OldPath string
+	NewPath string
+	Lines   []git.DiffLine
+	*git.DiffHunk
+}
+
+// TODO: make it generate a quick patch that could be curled
+func (h *DiffHunk) AsPatch() *Blob {
+	var data [][]byte
+	for _, l := range h.Lines {
+		data = append(data, []byte(l.Content))
+	}
+	return &Blob{h.NewPath, "", data}
+}
+
 type Diff struct {
 	CommitA *Commit
 	CommitB *Commit
 	Stats   string
-	Patches *[][]byte
+	Hunks   []*DiffHunk
 	*git.Diff
 }
 
@@ -118,8 +133,9 @@ func GetDiff(repo *Repo, commitA *Commit, commitB *Commit) Diff {
 		treeB, _ = commitB.Tree()
 	}
 	o, _ := git.DefaultDiffOptions()
-	diff, _ := repo.DiffTreeToTree(treeA, treeB, &o)
+	diff, _ := repo.DiffTreeToTree(treeB, treeA, &o)
 
+	// TODO: use a struct
 	stats, _ := diff.Stats()
 	statsStr, _ := stats.String(git.DiffStatsFull, 80)
 
@@ -127,18 +143,41 @@ func GetDiff(repo *Repo, commitA *Commit, commitB *Commit) Diff {
 		commitA,
 		commitB,
 		statsStr,
-		&[][]byte{},
+		nil,
 		diff,
 	}
-	n, _ := diff.NumDeltas()
-	var patches [][]byte
-	for i := 0; i < n; i++ {
-		patch, _ := diff.Patch(i)
 
-		s, _ := patch.String()
-		patches = append(patches, []byte(s))
-	}
-	r.Patches = &patches
+	numDiffs := 0
+	numAdded := 0
+	numDeleted := 0
+
+	var hunks []*DiffHunk
+	diff.ForEach(func(file git.DiffDelta, progress float64) (git.DiffForEachHunkCallback, error) {
+		numDiffs++
+
+		switch file.Status {
+		case git.DeltaAdded:
+			numAdded++
+		case git.DeltaDeleted:
+			numDeleted++
+		}
+
+		var hunk DiffHunk
+
+		hunk.OldPath = file.OldFile.Path
+		hunk.NewPath = file.NewFile.Path
+
+		hunks = append(hunks, &hunk)
+		return func(ghunk git.DiffHunk) (git.DiffForEachLineCallback, error) {
+			hunk.DiffHunk = &ghunk
+			return func(line git.DiffLine) error {
+				hunk.Lines = append(hunk.Lines, line)
+				return nil
+			}, nil
+		}, nil
+	}, git.DiffDetailLines)
+
+	r.Hunks = hunks
 	return r
 }
 
@@ -220,56 +259,6 @@ func LoadRepository(name string, repoPath string) *Repo {
 	}
 }
 
-func (repo *Repo) ReadBlob(commit *Commit, filepath string) ([]byte, error) {
-	t, err := commit.Tree()
-	if err != nil {
-		log.Print("invalid tree: ", err)
-	}
-
-	te, _ := t.EntryByPath(filepath)
-	if te == nil {
-		return nil, fmt.Errorf("no such file/blob/tree entry %s", filepath)
-	}
-
-	f, err := repo.Lookup(te.Id)
-	if err != nil {
-		return nil, err
-	}
-
-	b, err := f.AsBlob()
-	if err != nil {
-		return nil, err
-	}
-
-	return b.Contents(), nil
-}
-
-// TODO: don't return a byte array: return an array of structs
-func (repo *Repo) ReadBlobBlame(commit *Commit, filepath string) ([]byte, error) {
-	o, _ := git.DefaultBlameOptions()
-	o.NewestCommit = commit.Id()
-	blame, err := repo.BlameFile(filepath, &o)
-	if err != nil {
-		return nil, err
-	}
-	blob, err := repo.ReadBlob(commit, filepath)
-	var out [][]byte
-	// TODO: handle windows line endings
-	for nu, l := range bytes.Split(blob, []byte{'\n'}) {
-		hunk, err := blame.HunkByLine(nu + 1)
-		if err != nil {
-			// TODO: FIXME: a quick 'n' dirty hack
-			continue
-		}
-		out = append(out, bytes.Join([][]byte{
-			[]byte(hunk.FinalSignature.Email),
-			[]byte(strconv.Itoa(nu + 1)),
-			l},
-			[]byte("\t")))
-	}
-	return bytes.Join(out, []byte("\n")), nil
-}
-
 type User struct {
 	Name   string
 	Email  string
@@ -314,11 +303,77 @@ func GetUserFromEmail(email string) *User {
 	return &u
 }
 
+type Blob struct {
+	Path string
+	Type string
+	Data [][]byte
+}
+
+func (b *Blob) ByteArray() []byte {
+	return bytes.Join(b.Data, []byte(""))
+}
+
+type Blame struct {
+	*Blob
+	Users []*User
+}
+
+func (repo *Repo) ReadBlob(commit *Commit, filepath string) (*Blob, error) {
+	t, err := commit.Tree()
+	if err != nil {
+		log.Print("invalid tree: ", err)
+	}
+
+	te, _ := t.EntryByPath(filepath)
+	if te == nil {
+		return nil, fmt.Errorf("no such file/blob/tree entry %s", filepath)
+	}
+
+	f, err := repo.Lookup(te.Id)
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := f.AsBlob()
+	if err != nil {
+		return nil, err
+	}
+
+	ext := path.Ext(filepath)
+	if ext != "" {
+		ext = ext[1:]
+	}
+	return &Blob{filepath, ext, bytes.SplitAfter(b.Contents(), []byte("\n"))}, nil
+}
+
+// TODO: cache this
+func (repo *Repo) ReadBlobBlame(commit *Commit, filepath string) (*Blame, error) {
+	o, _ := git.DefaultBlameOptions()
+	o.NewestCommit = commit.Id()
+	blame, err := repo.BlameFile(filepath, &o)
+	if err != nil {
+		return nil, err
+	}
+	blob, err := repo.ReadBlob(commit, filepath)
+	var b Blame
+
+	// TODO: handle Windows line endings
+	for nu, l := range blob.Data {
+		hunk, err := blame.HunkByLine(nu + 1)
+		if err != nil {
+			// TODO: FIXME: a quick 'n' dirty hack
+			continue
+		}
+		b.Data = append(b.Data, l)
+		b.Users = append(b.Users, GetUserFromEmail(hunk.FinalSignature.Email))
+	}
+	return &b, nil
+}
+
 // TODO: possibly do this for known blobs in a separate thread when staring the server?
-// TODO: make highlighting faster (thread rendering hunks)
-func HighlightedBlobHTML(blob *[]byte, t string) template.HTML {
+func HighlightedBlobHTML(b *Blob) template.HTML {
 	m := md5.New()
-	m.Write(*blob)
+	m.Write(b.ByteArray())
 	k := []byte("blob:" + hex.EncodeToString(m.Sum(nil)))
 
 	var htmlBlob []byte
@@ -335,9 +390,9 @@ func HighlightedBlobHTML(blob *[]byte, t string) template.HTML {
 		return template.HTML(string(htmlBlob))
 	}
 
-	h, err := pygments.Highlight(*blob, t, "html", "utf-8")
+	h, err := pygments.Highlight(b.ByteArray(), b.Type, "html", "utf-8")
 	if err != nil {
-		h = "<pre>" + html.EscapeString(string(*blob)) + "</pre>"
+		h = "<pre>" + html.EscapeString(string(b.ByteArray())) + "</pre>"
 	}
 	r := template.HTML(h)
 

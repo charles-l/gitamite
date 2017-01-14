@@ -33,8 +33,8 @@ func FileTree(c echo.Context) error {
 	t, _ := commit.Tree()
 
 	readme := ""
-	if buf, err := repo.ReadBlob(commit, "README.md"); err == nil {
-		readme = string(buf)
+	if blob, err := repo.ReadBlob(commit, "README.md"); err == nil {
+		readme = string(blob.ByteArray())
 	}
 
 	var entries []gitamite.TreeEntry

@@ -2,5 +2,25 @@
     <pre>
 {{.Diff.Stats}}
     </pre>
-    {{highlight_blobs .Diff.Patches "diff"}}
+    {{range .Diff.Hunks}}
+    <table class="diff">
+        {{if eqv .OldPath .NewPath}}
+            <caption>{{.NewPath}}</caption>
+        {{else}}
+            <caption>{{.OldPath}} &#10142; {{.NewPath}}</caption>
+        {{end}}
+        <tr><th colspan="3">{{.Header}}</th></tr>
+    {{range .Lines}}
+        {{if diff_add .}}
+            <tr><td class="lineno">{{.NewLineno}}</td><td class="diff-add">+</td><td class="diff-add">{{.Content}}</td></tr>
+        {{else}}
+        {{if diff_del .}}
+            <tr><td class="lineno">{{.OldLineno}}</td><td class="diff-del">-</td><td class="diff-del">{{.Content}}</td></tr>
+        {{else}}
+            <tr><td class="lineno">{{.NewLineno}}</td><td></td><td>{{.Content}}</td></tr>
+        {{end}}
+        {{end}}
+    {{end}}
+    </table>
+    {{end}}
 {{end}}

@@ -314,8 +314,8 @@ func (b *Blob) ByteArray() []byte {
 }
 
 type Blame struct {
-	*Blob
 	Users []*User
+	*Blob
 }
 
 func (repo *Repo) ReadBlob(commit *Commit, filepath string) (*Blob, error) {
@@ -355,11 +355,11 @@ func (repo *Repo) ReadBlobBlame(commit *Commit, filepath string) (*Blame, error)
 		return nil, err
 	}
 	blob, err := repo.ReadBlob(commit, filepath)
-	var b Blame
+	b := Blame{[]*User{}, blob}
 
 	// TODO: handle Windows line endings
-	for nu, l := range blob.Data {
-		hunk, err := blame.HunkByLine(nu + 1)
+	for i, l := range b.Data {
+		hunk, err := blame.HunkByLine(i)
 		if err != nil {
 			// TODO: FIXME: a quick 'n' dirty hack
 			continue

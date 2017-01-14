@@ -106,11 +106,22 @@ func main() {
 		"highlight": func(b *gitamite.Blob) template.HTML {
 			return gitamite.HighlightedBlobHTML(b)
 		},
+		// TODO: figure out how to combine these render funcs
 		"render_blob": func(b *gitamite.Blob) template.HTML {
 			buf := bytes.NewBufferString("<table class=\"diff highlight\">")
 
 			for nu, l := range strings.Split(string(gitamite.HighlightedBlobHTML(b)), "\n") {
 				buf.WriteString("<tr><td class=\"lineno\">" + strconv.Itoa(nu+1) + "</td><td>" + l + "</td></tr>")
+			}
+
+			buf.WriteString("</table>")
+			return template.HTML(buf.String())
+		},
+		"render_blame": func(b *gitamite.Blame) template.HTML {
+			buf := bytes.NewBufferString("<table class=\"diff highlight\">")
+
+			for i, u := range b.Users {
+				buf.WriteString("<tr><td><a href=\"" + u.URL() + "\">" + u.Name + "</a></td><td class=\"lineno\">" + strconv.Itoa(i+1) + "</td><td>" + string(b.Data[i]) + "</td></tr>")
 			}
 
 			buf.WriteString("</table>")
@@ -176,7 +187,7 @@ func main() {
 	e.GET("/repo/:repo/:ref/commits", handler.Commits)
 
 	e.GET("/repo/:repo/blob/*", handler.File)
-	e.GET("/repo/:repo/blame/blob/*", handler.Blame)
+	e.GET("/repo/:repo/blame/*", handler.Blame)
 	e.GET("/repo/:repo/commit/:commit/blob/*", handler.File)
 
 	e.GET("/repo/:repo/tree/*", handler.FileTree)

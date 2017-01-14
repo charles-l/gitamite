@@ -3,3 +3,9 @@
     <a href="{{.Repo | path}}/{{.Blob.BlobURL}}">File</a>
     {{render_blob .Blob}}
 {{end}}
+
+{{define "blame"}}
+    <a href="{{.Repo | path}}/{{.Blame.Blob.BlameURL}}">Blame</a>
+    <a href="{{.Repo | path}}/{{.Blame.Blob.BlobURL}}">File</a>
+    {{render_blame .Blame}}
+{{end}}

@@ -119,6 +119,7 @@ pre, table.diff {
 
 .lineno {
     padding: 0 10px 0 10px;
+    text-align: right;
     color: #ddd;
 }
 

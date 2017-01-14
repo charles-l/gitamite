@@ -38,17 +38,9 @@ func File(c echo.Context) error {
 	c.Render(http.StatusOK, "file", struct {
 		Repo *gitamite.Repo
 		Blob *gitamite.Blob
-
-		FileExt  string
-		BlameURL string
 	}{
 		repo,
 		s,
-
-		ext,
-
-		// TODO: pass the entity instead and use URLable
-		path.Join(repo.URL(), "blame", "blob", helper.PathParam(c)),
 	})
 	return nil
 }
@@ -71,19 +63,12 @@ func Blame(c echo.Context) error {
 		return fmt.Errorf("failed to get blob")
 	}
 
-	c.Render(http.StatusOK, "file", struct {
+	c.Render(http.StatusOK, "blame", struct {
 		Repo  *gitamite.Repo
 		Blame *gitamite.Blame
-
-		BlameURL string
-		// TODO: pass the entity instead and use URLable
-		FileURL string
 	}{
 		repo,
 		s,
-
-		"",
-		path.Join(repo.URL(), "blob", helper.PathParam(c)),
 	})
 	return nil
 }

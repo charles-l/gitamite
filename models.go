@@ -100,6 +100,17 @@ func (r Repo) LookupRef(ref string) (Ref, error) {
 	return Ref{master.Reference}, nil
 }
 
+func (repo *Repo) Refs() []*Ref {
+	iter, _ := repo.NewBranchIterator(git.BranchLocal)
+
+	var refs []*Ref
+	iter.ForEach(func(b *git.Branch, t git.BranchType) error {
+		refs = append(refs, &Ref{b.Reference})
+		return nil
+	})
+	return refs
+}
+
 type DiffHunk struct {
 	OldPath string
 	NewPath string
@@ -187,8 +198,7 @@ type Commit struct {
 }
 
 func MakeCommit(g *git.Commit) *Commit {
-	return &Commit{GetUserFromEmail(g.Committer().Email),
-		g}
+	return &Commit{GetUserFromEmail(g.Committer().Email), g}
 }
 
 func (r Repo) LookupCommit(hash string) (*Commit, error) {
@@ -205,23 +215,26 @@ func (r Repo) LookupCommit(hash string) (*Commit, error) {
 	return MakeCommit(c), nil
 }
 
-func GetCommitLog(repo *Repo, ref *Ref) []Commit {
+func GetCommitLog(repo *Repo, ref *Ref) []*Commit {
 	r, err := repo.Walk()
 	if err != nil {
 		log.Print("failed to walk repo: ", err)
 	}
 
-	r.Push(ref.Target())
+	if ref == nil {
+		r.PushGlob("*")
+	} else {
+		r.Push(ref.Target())
+	}
 	r.Sorting(git.SortTime)
 	r.SimplifyFirstParent()
 
 	id := &(git.Oid{})
 
-	var commits []Commit
+	var commits []*Commit
 	for r.Next(id) == nil {
 		g, _ := repo.Repository.LookupCommit(id)
-		c := MakeCommit(g)
-		commits = append(commits, *c)
+		commits = append(commits, MakeCommit(g))
 	}
 	return commits
 }

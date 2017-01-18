@@ -5,7 +5,6 @@ import (
 	"github.com/charles-l/gitamite/server/helper"
 
 	"github.com/labstack/echo"
-	"github.com/libgit2/git2go"
 
 	"net/http"
 )
@@ -16,17 +15,11 @@ func Refs(c echo.Context) error {
 		return err
 	}
 
-	iter, _ := repo.NewBranchIterator(git.BranchLocal)
-
-	var refs []gitamite.Ref
-	iter.ForEach(func(b *git.Branch, t git.BranchType) error {
-		refs = append(refs, gitamite.Ref{b.Reference})
-		return nil
-	})
+	refs := repo.Refs()
 
 	c.Render(http.StatusOK, "refs", struct {
 		Repo *gitamite.Repo
-		Refs []gitamite.Ref
+		Refs []*gitamite.Ref
 	}{
 		repo,
 		refs,

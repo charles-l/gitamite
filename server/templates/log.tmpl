@@ -1,7 +1,8 @@
 {{define "log"}}
     {{$repo := .Repo}}
     <p>{{s_ify "commit" (len .Commits)}}</p>
-    <table>
+    {{render_commit_graph $repo}}
+    <table class="commit-log">
     {{range .Commits}}
         <tr><td><a href="{{path $repo}}/commit/{{path .}}">{{.Message}}</a></td><td><a href="{{.User | path}}">{{.User.Name}}</a></td><td>{{.Date | humanizeTime}}</td></tr>
     {{end}}

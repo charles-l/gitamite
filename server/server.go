@@ -9,6 +9,7 @@ import (
 	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/context"
 	"github.com/charles-l/gitamite/server/handler"
+	"github.com/charles-l/gitamite/server/helper"
 
 	// better templates
 	"github.com/unrolled/render"
@@ -16,7 +17,6 @@ import (
 	// markdown renderer
 	"github.com/russross/blackfriday"
 
-	// helper
 	"github.com/dustin/go-humanize"
 	"github.com/libgit2/git2go"
 
@@ -153,6 +153,9 @@ func main() {
 		"eqv": func(a interface{}, b interface{}) bool {
 			return a == b
 		},
+		"render_commit_graph": func(repo *gitamite.Repo) template.HTML {
+			return template.HTML(helper.RenderLogTree(repo))
+		},
 	}
 
 	r := &RenderWrapper{render.New(render.Options{
@@ -183,7 +186,7 @@ func main() {
 	e.GET("/repo/:repo", handler.FileTree)
 	e.GET("/repo/:repo/refs", handler.Refs)
 
-	e.GET("/repo/:repo/commits", handler.Commits)
+	e.GET("/repo/:repo/commits", handler.FullCommits)
 	e.GET("/repo/:repo/:ref/commits", handler.Commits)
 
 	e.GET("/repo/:repo/blob/*", handler.File)

@@ -36,11 +36,15 @@ func Repo(c echo.Context) (*gitamite.Repo, error) {
 	return repo, nil
 }
 
-func Ref(c echo.Context) (*gitamite.Ref, error) {
+func Ref(c echo.Context, allowNil bool) (*gitamite.Ref, error) {
 	repo, _ := Repo(c)
 	refstr := c.Param("ref")
 	if refstr == "" {
-		refstr = "master"
+		if allowNil {
+			return nil, nil
+		} else {
+			refstr = "master"
+		}
 	}
 	ref, err := repo.LookupRef(refstr)
 	return &ref, err
@@ -60,7 +64,7 @@ func Commit(c echo.Context) (*gitamite.Commit, error) {
 	var commit *gitamite.Commit
 	commitstr := c.Param("commit")
 	if commitstr == "" {
-		ref, err := Ref(c)
+		ref, err := Ref(c, false)
 		if err != nil {
 			return nil, err
 		}

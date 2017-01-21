@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/helper"
+	"github.com/charles-l/gitamite/server/model"
 
 	"github.com/labstack/echo"
 
@@ -11,7 +11,7 @@ import (
 
 // TODO: clean this up
 func Diff(c echo.Context) error {
-	repo, err := helper.Repo(c)
+	repo, err := helper.RepoParam(c)
 	if err != nil {
 		return err
 	}
@@ -21,10 +21,10 @@ func Diff(c echo.Context) error {
 		return err
 	}
 
-	var commitB *gitamite.Commit
+	var commitB *model.Commit
 	if c.Param("oidB") == "" {
 		if commitA.ParentCount() > 0 {
-			commitB = gitamite.MakeCommit(commitA.Parent(0))
+			commitB = model.MakeCommit(commitA.Parent(0))
 		} else {
 			commitB = nil
 		}
@@ -35,11 +35,11 @@ func Diff(c echo.Context) error {
 		}
 	}
 
-	diff := gitamite.GetDiff(repo, commitA, commitB)
+	diff := model.GetDiff(repo, commitA, commitB)
 
 	c.Render(http.StatusOK, "diff", struct {
-		Repo *gitamite.Repo
-		Diff *gitamite.Diff
+		Repo *model.Repo
+		Diff *model.Diff
 	}{
 		repo,
 		&diff,

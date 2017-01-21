@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/helper"
+	"github.com/charles-l/gitamite/server/model"
 
 	"github.com/labstack/echo"
 
@@ -13,12 +13,12 @@ import (
 )
 
 func File(c echo.Context) error {
-	repo, err := helper.Repo(c)
+	repo, err := helper.RepoParam(c)
 	if err != nil {
 		return err
 	}
 
-	commit, err := helper.Commit(c)
+	commit, err := helper.CommitParam(c)
 	if err != nil {
 		return err
 	}
@@ -36,8 +36,8 @@ func File(c echo.Context) error {
 	}
 
 	c.Render(http.StatusOK, "file", struct {
-		Repo *gitamite.Repo
-		Blob *gitamite.Blob
+		Repo *model.Repo
+		Blob *model.Blob
 	}{
 		repo,
 		s,
@@ -47,12 +47,12 @@ func File(c echo.Context) error {
 
 func Blame(c echo.Context) error {
 	// TODO: figure out how to pull the repo check out further so it's not duplicated everywhere
-	repo, err := helper.Repo(c)
+	repo, err := helper.RepoParam(c)
 	if err != nil {
 		return err
 	}
 
-	commit, err := helper.Commit(c)
+	commit, err := helper.CommitParam(c)
 	if err != nil {
 		return err
 	}
@@ -64,8 +64,8 @@ func Blame(c echo.Context) error {
 	}
 
 	c.Render(http.StatusOK, "blame", struct {
-		Repo  *gitamite.Repo
-		Blame *gitamite.Blame
+		Repo  *model.Repo
+		Blame *model.Blame
 	}{
 		repo,
 		s,

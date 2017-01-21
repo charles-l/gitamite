@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/helper"
+	"github.com/charles-l/gitamite/server/model"
 
 	"fmt"
 	"github.com/labstack/echo"
@@ -12,16 +12,16 @@ import (
 
 func FileTree(c echo.Context) error {
 	path := "/"
-	repo, err := helper.Repo(c)
+	repo, err := helper.RepoParam(c)
 	if err != nil {
 		return err
 	}
 
-	commit, err := helper.Commit(c)
+	commit, err := helper.CommitParam(c)
 	if err != nil {
 		// TODO: pass server name
 		c.Render(http.StatusOK, "empty", struct {
-			Repo *gitamite.Repo
+			Repo *model.Repo
 		}{
 			repo,
 		})
@@ -37,11 +37,11 @@ func FileTree(c echo.Context) error {
 		readme = string(blob.ByteArray())
 	}
 
-	var entries []gitamite.TreeEntry
+	var entries []model.TreeEntry
 	if path == "/" || path == "" {
-		entries = gitamite.GetTreeEntries(t, "/")
+		entries = model.GetTreeEntries(t, "/")
 	} else {
-		entries, err = gitamite.GetSubTree(t, path)
+		entries, err = model.GetSubTree(t, path)
 		if err != nil {
 			log.Printf("Filetree error: %v", err)
 			return fmt.Errorf("Failed to get file tree")
@@ -50,8 +50,8 @@ func FileTree(c echo.Context) error {
 
 	c.Render(http.StatusOK, "filelist",
 		struct {
-			Repo    *gitamite.Repo
-			Entries []gitamite.TreeEntry
+			Repo    *model.Repo
+			Entries []model.TreeEntry
 			README  string
 		}{
 			repo,

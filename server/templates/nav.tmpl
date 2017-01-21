@@ -3,10 +3,10 @@
     <section>
         <nav>
             {{if .Repo}}
-                <h3><a href="{{path .Repo}}/">{{.Repo.Name}}</a></h3>
-                <a href="{{path .Repo}}/">Files</a>
-                <a href="{{path .Repo}}/commits/">Log</a>
-                <a href="{{path .Repo}}/refs/">Branches</a>
+                <h3><a href="{{repo_path .Repo}}/">{{.Repo.Name}}</a></h3>
+                <a href="{{repo_path .Repo}}/">Files</a>
+                <a href="{{repo_path .Repo}}/commits/">Log</a>
+                <a href="{{repo_path .Repo}}/refs/">Branches</a>
             {{else}}
                 <h3><a href="/">Repos</a></h3>
             {{end}}

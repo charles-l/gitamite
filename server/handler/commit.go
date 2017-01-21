@@ -3,23 +3,23 @@ package handler
 import (
 	"net/http"
 
-	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/helper"
+	"github.com/charles-l/gitamite/server/model"
 	"github.com/labstack/echo"
 )
 
 func FullCommits(c echo.Context) error {
-	repo, err := helper.Repo(c)
+	repo, err := helper.RepoParam(c)
 	if err != nil {
 		return err
 	}
 
-	log := gitamite.GetCommitLog(repo, nil)
+	log := repo.CommitLog(nil)
 
 	c.Render(http.StatusOK, "log",
 		struct {
-			Repo    *gitamite.Repo
-			Commits []*gitamite.Commit
+			Repo    *model.Repo
+			Commits []*model.Commit
 		}{
 			repo,
 			log,
@@ -28,29 +28,27 @@ func FullCommits(c echo.Context) error {
 }
 
 func Commits(c echo.Context) error {
-	repo, err := helper.Repo(c)
+	repo, err := helper.RepoParam(c)
 	if err != nil {
 		return err
 	}
 
-	ref, err := helper.Ref(c, true)
+	ref, err := helper.RefParam(c, true)
 	if err != nil {
 		return err
 	}
 
-	// i know this if statement isn't needed
-	// i just wanted it to b clear what's going on here
-	var log []*gitamite.Commit
-	if ref == nil {
-		log = gitamite.GetCommitLog(repo, nil)
+	var log []*model.Commit
+	if ref == nil { // i'm just being explicit
+		log = repo.CommitLog(nil)
 	} else {
-		log = gitamite.GetCommitLog(repo, ref)
+		log = repo.CommitLog(ref)
 	}
 
 	c.Render(http.StatusOK, "log",
 		struct {
-			Repo    *gitamite.Repo
-			Commits []*gitamite.Commit
+			Repo    *model.Repo
+			Commits []*model.Commit
 		}{
 			repo,
 			log,

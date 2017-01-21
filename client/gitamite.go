@@ -28,7 +28,6 @@ func makeRequest(args []string, f func(url.URL, []byte) *http.Response) {
 		Path:   "/repo",
 	}
 
-	// TODO: generalize the request struct when needed
 	if len(args) < 1 {
 		errx(1, "need a name")
 	}

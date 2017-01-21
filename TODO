@@ -1,3 +1,4 @@
 * repo description hook on remote that symlinks .git/description with a .description file
 * verify commits with gpg key
 * make a page that collects TODOs into one place
+* rewrite TreeEntry

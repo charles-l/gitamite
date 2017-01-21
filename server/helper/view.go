@@ -1,23 +1,23 @@
 package helper
 
 import (
-	"github.com/charles-l/gitamite"
+	"github.com/charles-l/gitamite/server/model"
 	"github.com/gosvg/gosvg"
 	"github.com/libgit2/git2go"
 
 	"bytes"
 )
 
-func RenderLogTree(repo *gitamite.Repo) []byte {
+func RenderLogTree(repo *model.Repo) []byte {
 	type commitNode struct {
 		x, y   float64
-		commit *gitamite.Commit
+		commit *model.Commit
 		branch string
 	}
 
 	nodes := make(map[string]*commitNode)
 
-	for i, c := range gitamite.GetCommitLog(repo, nil) {
+	for i, c := range repo.CommitLog(nil) {
 		y := float64(10 + i*32)
 		x := float64(10)
 		branchName := ""

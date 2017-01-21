@@ -3,6 +3,7 @@ package handler
 import (
 	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/context"
+	"github.com/charles-l/gitamite/server/model"
 	"github.com/libgit2/git2go"
 
 	"github.com/labstack/echo"
@@ -74,7 +75,7 @@ func DeleteRepo(c echo.Context) error {
 
 	log.Printf("deleting repo %s", repoPath)
 	os.RemoveAll(repoPath)
-	delete(c.(*server.Context).Repos, name)
+	delete(c.(*context.Context).Repos, name)
 	return nil
 }
 
@@ -107,21 +108,21 @@ func CreateRepo(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	c.(*server.Context).Repos[name] = &gitamite.Repo{name, newRepoPath, "", repo}
+	c.(*context.Context).Repos[name] = &model.Repo{name, newRepoPath, "", repo}
 	return nil
 }
 
 func Repos(c echo.Context) error {
-	repos := c.(*server.Context).Repos
+	repos := c.(*context.Context).Repos
 
-	vals := make([]*gitamite.Repo, 0, len(repos))
+	vals := make([]*model.Repo, 0, len(repos))
 	for _, v := range repos {
 		vals = append(vals, v)
 	}
 
 	c.Render(http.StatusOK, "repos", struct {
-		Repo  *gitamite.Repo
-		Repos []*gitamite.Repo
+		Repo  *model.Repo
+		Repos []*model.Repo
 	}{
 		nil,
 		vals,

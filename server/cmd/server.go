@@ -8,8 +8,9 @@ import (
 	// API and server functionality
 	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/context"
-	"github.com/charles-l/gitamite/server/handler"
 	"github.com/charles-l/gitamite/server/helper"
+	"github.com/charles-l/gitamite/server/model"
+	"github.com/charles-l/gitamite/server/route"
 
 	// better templates
 	"github.com/unrolled/render"
@@ -47,12 +48,12 @@ func (r *RenderWrapper) Render(w io.Writer, name string, data interface{}, c ech
 }
 
 func main() {
-	db := gitamite.InitDB()
+	db := model.InitDB()
 	defer db.Close()
 	log.Printf("loaded DB")
 
 	gitamite.LoadConfig(gitamite.Server)
-	repos := make(map[string]*gitamite.Repo)
+	repos := make(map[string]*model.Repo)
 
 	repoDir, err := gitamite.GetConfigValue("repo_dir")
 	if err != nil {
@@ -64,13 +65,13 @@ func main() {
 	for _, p := range matches {
 		log.Printf("loading repo from %s\n", p)
 		name := filepath.Base(p)
-		repos[name] = gitamite.LoadRepository(name, p)
+		repos[name] = model.LoadRepository(name, p)
 	}
 
 	e := echo.New()
 	e.Use(func(h echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
-			cc := &server.Context{c, repos}
+			cc := &context.Context{c, repos}
 			return h(cc)
 		}
 	})
@@ -88,40 +89,65 @@ func main() {
 				return fmt.Sprintf("%d %ss", n, str)
 			}
 		},
-		"path": func(urlables ...gitamite.URLable) string {
-			var r []string
-			for _, u := range urlables {
-				r = append(r, u.URL())
+		"repo_path": func(r *model.Repo) string {
+			return route.RepoPath(r)
+		},
+		"tree_entry_path": func(r *model.Repo, c *model.Commit, t model.TreeEntry) string {
+			if t.Type == git.ObjectBlob {
+				return path.Join(route.RepoPath(r), "blob", t.DirPath, t.Name)
+			} else if t.Type == git.ObjectTree {
+				if t.DirPath == "" {
+					return "/"
+				} else {
+					if t.Name == ".." { // TODO: simplify
+						return path.Join(route.RepoPath(r), "tree", t.DirPath)
+					} else {
+						return path.Join(route.RepoPath(r), "tree", t.DirPath, t.Name)
+					}
+				}
 			}
-			return path.Join(r...)
+			return ""
+		},
+		"commit_path": func(r *model.Repo, c *model.Commit) string {
+			return route.CommitPath(r, c)
+		},
+		"user_path": func(u *model.User) string {
+			return route.UserPath(u)
+		},
+		// TODO: make this less garbage
+		"blob_path": func(r *model.Repo, b *model.Blob) string {
+			return route.BlobPath(r, nil, b)
+		},
+		"blame_path": func(r *model.Repo, b *model.Blob) string {
+			return route.BlamePath(r, b)
 		},
 		"markdown": func(args ...interface{}) template.HTML {
 			// TODO: cache this instead of parsing every time
 			s := blackfriday.MarkdownCommon([]byte(fmt.Sprintf("%s", args...)))
 			return template.HTML(s)
 		},
-		"is_file": func(t gitamite.TreeEntry) bool {
+		"is_file": func(t model.TreeEntry) bool {
 			return t.Type == git.ObjectBlob
 		},
-		"highlight": func(b *gitamite.Blob) template.HTML {
-			return gitamite.HighlightedBlobHTML(b)
+		"highlight": func(b *model.Blob) template.HTML {
+			return model.HighlightedBlobHTML(b)
 		},
 		// TODO: figure out how to combine these render funcs
-		"render_blob": func(b *gitamite.Blob) template.HTML {
+		"render_blob": func(b *model.Blob) template.HTML {
 			buf := bytes.NewBufferString("<table class=\"diff highlight\">")
 
-			for nu, l := range strings.Split(string(gitamite.HighlightedBlobHTML(b)), "\n") {
+			for nu, l := range strings.Split(string(model.HighlightedBlobHTML(b)), "\n") {
 				buf.WriteString("<tr><td class=\"lineno\">" + strconv.Itoa(nu+1) + "</td><td>" + l + "</td></tr>")
 			}
 
 			buf.WriteString("</table>")
 			return template.HTML(buf.String())
 		},
-		"render_blame": func(b *gitamite.Blame) template.HTML {
+		"render_blame": func(b *model.Blame) template.HTML {
 			buf := bytes.NewBufferString("<table class=\"diff highlight\">")
 
 			for i, u := range b.Users {
-				buf.WriteString("<tr><td><a href=\"" + u.URL() + "\">" + u.Name + "</a></td><td class=\"lineno\">" + strconv.Itoa(i+1) + "</td><td>" + string(b.Data[i]) + "</td></tr>")
+				buf.WriteString("<tr><td><a href=\"" + route.UserPath(u) + "\">" + u.Name + "</a></td><td class=\"lineno\">" + strconv.Itoa(i+1) + "</td><td>" + string(b.Data[i]) + "</td></tr>")
 			}
 
 			buf.WriteString("</table>")
@@ -133,14 +159,14 @@ func main() {
 		"diff_del": func(l git.DiffLine) bool {
 			return l.Origin == git.DiffLineDeletion
 		},
-		"highlight_blobs": func(blobs []*gitamite.Blob) template.HTML {
+		"highlight_blobs": func(blobs []*model.Blob) template.HTML {
 			var wg sync.WaitGroup
 			outChan := make(chan string, len(blobs))
 			for i := range blobs {
 				wg.Add(1)
-				go func(b *gitamite.Blob) {
+				go func(b *model.Blob) {
 					defer wg.Done()
-					outChan <- string(gitamite.HighlightedBlobHTML(b))
+					outChan <- string(model.HighlightedBlobHTML(b))
 				}(blobs[i])
 			}
 			wg.Wait()
@@ -153,7 +179,7 @@ func main() {
 		"eqv": func(a interface{}, b interface{}) bool {
 			return a == b
 		},
-		"render_commit_graph": func(repo *gitamite.Repo) template.HTML {
+		"render_commit_graph": func(repo *model.Repo) template.HTML {
 			return template.HTML(helper.RenderLogTree(repo))
 		},
 	}
@@ -168,7 +194,7 @@ func main() {
 		if c.Request().Header.Get("Content-Type") != "application/json" {
 			// TODO: don't always blame teh user :P
 			c.Render(http.StatusBadRequest, "error", struct {
-				Repo  *gitamite.Repo
+				Repo  *model.Repo
 				Error string
 			}{
 				nil,
@@ -179,29 +205,7 @@ func main() {
 		}
 	}
 
-	e.Static("/a", "pub")
-
-	e.GET("/", handler.Repos)
-
-	e.GET("/repo/:repo", handler.FileTree)
-	e.GET("/repo/:repo/refs", handler.Refs)
-
-	e.GET("/repo/:repo/commits", handler.FullCommits)
-	e.GET("/repo/:repo/:ref/commits", handler.Commits)
-
-	e.GET("/repo/:repo/blob/*", handler.File)
-	e.GET("/repo/:repo/blame/*", handler.Blame)
-	e.GET("/repo/:repo/commit/:commit/blob/*", handler.File)
-
-	e.GET("/repo/:repo/tree/*", handler.FileTree)
-	e.GET("/repo/:repo/commit/:commit/tree/*", handler.FileTree)
-
-	e.GET("/repo/:repo/commit/:oidA", handler.Diff)
-
-	e.POST("/repo", handler.CreateRepo)
-	e.DELETE("/repo", handler.DeleteRepo)
-
-	e.GET("/user/:email", handler.User)
+	route.Setup(e)
 
 	e.Logger.Fatal(e.Start(":8000"))
 }

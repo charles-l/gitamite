@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/helper"
+	"github.com/charles-l/gitamite/server/model"
 
 	"github.com/labstack/echo"
 
@@ -10,7 +10,7 @@ import (
 )
 
 func Refs(c echo.Context) error {
-	repo, err := helper.Repo(c)
+	repo, err := helper.RepoParam(c)
 	if err != nil {
 		return err
 	}
@@ -18,8 +18,8 @@ func Refs(c echo.Context) error {
 	refs := repo.Refs()
 
 	c.Render(http.StatusOK, "refs", struct {
-		Repo *gitamite.Repo
-		Refs []*gitamite.Ref
+		Repo *model.Repo
+		Refs []*model.Ref
 	}{
 		repo,
 		refs,

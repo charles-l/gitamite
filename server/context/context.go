@@ -1,11 +1,11 @@
-package server
+package context
 
 import (
-	"github.com/charles-l/gitamite"
+	"github.com/charles-l/gitamite/server/model"
 	"github.com/labstack/echo"
 )
 
 type Context struct {
 	echo.Context
-	Repos map[string]*gitamite.Repo
+	Repos map[string]*model.Repo
 }

@@ -1,11 +1,10 @@
 package helper
 
-// dunno if this is the best place for this functionality, but i don't have
-// anywhere better to put it atm.
+// parses repos, refs, commits, blobs, etc. out of request param
 
 import (
-	"github.com/charles-l/gitamite"
 	"github.com/charles-l/gitamite/server/context"
+	"github.com/charles-l/gitamite/server/model"
 
 	"github.com/labstack/echo"
 	"github.com/libgit2/git2go"
@@ -14,7 +13,7 @@ import (
 	"path"
 )
 
-func defaultCommit(r *gitamite.Repo, ref *gitamite.Ref) (*gitamite.Commit, error) {
+func defaultCommit(r *model.Repo, ref *model.Ref) (*model.Commit, error) {
 	commitObj, err := ref.Peel(git.ObjectCommit)
 	if err != nil {
 		return nil, err
@@ -25,19 +24,19 @@ func defaultCommit(r *gitamite.Repo, ref *gitamite.Ref) (*gitamite.Commit, error
 		return nil, err
 	}
 
-	return gitamite.MakeCommit(gcommit), nil
+	return model.MakeCommit(gcommit), nil
 }
 
-func Repo(c echo.Context) (*gitamite.Repo, error) {
-	repo := c.(*server.Context).Repos[c.Param("repo")]
+func RepoParam(c echo.Context) (*model.Repo, error) {
+	repo := c.(*context.Context).Repos[c.Param("repo")]
 	if repo == nil {
 		return nil, fmt.Errorf("no such repo")
 	}
 	return repo, nil
 }
 
-func Ref(c echo.Context, allowNil bool) (*gitamite.Ref, error) {
-	repo, _ := Repo(c)
+func RefParam(c echo.Context, allowNil bool) (*model.Ref, error) {
+	repo, _ := RepoParam(c)
 	refstr := c.Param("ref")
 	if refstr == "" {
 		if allowNil {
@@ -59,12 +58,12 @@ func PathParam(c echo.Context) string {
 	return p
 }
 
-func Commit(c echo.Context) (*gitamite.Commit, error) {
-	repo, _ := Repo(c)
-	var commit *gitamite.Commit
+func CommitParam(c echo.Context) (*model.Commit, error) {
+	repo, _ := RepoParam(c)
+	var commit *model.Commit
 	commitstr := c.Param("commit")
 	if commitstr == "" {
-		ref, err := Ref(c, false)
+		ref, err := RefParam(c, false)
 		if err != nil {
 			return nil, err
 		}
